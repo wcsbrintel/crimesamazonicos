@@ -1,0 +1,94 @@
+name: Publish Amazon Crimes
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: amazon-crimes-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    defaults:
+      run:
+        working-directory: amazon-crimes
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Verify source package exists
+        run: |
+          test -f public/index.html
+          test -f public/assets/js/app.js
+          test -f data/events.json
+
+      - name: Validate canonical event database
+        run: node scripts/validate-events.mjs
+
+      - name: Publish canonical event database
+        run: cp data/events.json public/data/events.json
+
+      - name: Cache event source images
+        run: node scripts/build-event-media.mjs
+
+      - name: Refresh public live-data snapshots
+        run: node scripts/build-pages-data.mjs
+
+      - name: Generate same-origin protected-area tiles
+        run: node scripts/build-territorial-tiles.mjs
+
+      - name: Validate JavaScript
+        run: |
+          node --check public/assets/js/app.js
+          node --check public/assets/js/temporal-filter.js
+          node --check scripts/build-territorial-tiles.mjs
+          node --check public/assets/js/territorial-overlays.js
+          node --check public/assets/js/language-preference.js
+          node --check public/assets/js/config.js
+          node --check public/assets/js/i18n.js
+          node --check public/assets/js/how-it-works.js
+          node --check public/assets/js/how-it-works-link.js
+          node --check public/assets/js/how-it-works-page.js
+          node --check public/assets/js/media-dock.js
+          node --check scripts/build-pages-data.mjs
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: amazon-crimes/public
+
+      - name: Deploy Amazon Crimes
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Browser smoke test - published events and language sync
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          npm install --no-save --no-package-lock --prefix /tmp/amazon-smoke playwright-core
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          if [ -z "$CHROME_PATH" ]; then
+            echo "No installed Chrome/Chromium browser for live smoke test"
+            exit 1
+          fi
+          CHROME_PATH="$CHROME_PATH" NODE_PATH="/tmp/amazon-smoke/node_modules" node scripts/smoke-pages.mjs

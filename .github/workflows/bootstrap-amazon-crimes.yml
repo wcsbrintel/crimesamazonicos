@@ -1,0 +1,101 @@
+name: Bootstrap Amazon Crimes copy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/bootstrap-amazon-crimes.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  copy-observatory:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out independent destination
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Clone public source and copy the complete observatory
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --single-branch --branch amazon-crimes-pages \
+            https://github.com/acarvalho-wcs/WCS.git /tmp/amazon-crimes-source
+          test -s /tmp/amazon-crimes-source/amazon-crimes/data/events.json
+          test -s /tmp/amazon-crimes-source/amazon-crimes/public/index.html
+          mkdir -p .github/workflows
+          cp -a /tmp/amazon-crimes-source/amazon-crimes ./amazon-crimes
+          cp /tmp/amazon-crimes-source/.github/workflows/amazon-crimes-pages.yml \
+            .github/workflows/amazon-crimes-pages.yml
+          cp /tmp/amazon-crimes-source/.github/workflows/probe-amazon-gis.yml \
+            .github/workflows/probe-amazon-gis.yml
+
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import subprocess
+
+          root=pathlib.Path(".")
+          publish=root/".github/workflows/amazon-crimes-pages.yml"
+          probe=root/".github/workflows/probe-amazon-gis.yml"
+          for file in (publish, probe):
+              source=file.read_text(encoding="utf-8")
+              if "      - amazon-crimes-pages" not in source:
+                  raise SystemExit(f"Unexpected source workflow branch: {file}")
+              file.write_text(source.replace("      - amazon-crimes-pages", "      - main"), encoding="utf-8")
+          smoke=root/"amazon-crimes/scripts/smoke-pages.mjs"
+          smoke.write_text(smoke.read_text(encoding="utf-8").replace(
+              "https://acarvalho-wcs.github.io/WCS/",
+              "https://wcsbrintel.github.io/crimesamazonicos/"
+          ), encoding="utf-8")
+
+          canonical=json.loads((root/"amazon-crimes/data/events.json").read_text(encoding="utf-8"))
+          records=canonical.get("events", [])
+          if not isinstance(records,list) or len(records)<176:
+              raise SystemExit(f"Canonical events unavailable or incomplete: {len(records)}")
+          files=list((root/"amazon-crimes").rglob("*"))
+          n_files=sum(item.is_file() for item in files)
+          source_sha=subprocess.check_output(["git","-C","/tmp/amazon-crimes-source","rev-parse","HEAD"],text=True).strip()
+          summary=f"""# Amazon Crimes migration provenance
+
+          - Source: https://github.com/acarvalho-wcs/WCS
+          - Source branch: `amazon-crimes-pages`
+          - Source commit: `{source_sha}`
+          - Destination: https://github.com/wcsbrintel/crimesamazonicos
+          - Copied application files: {n_files}
+          - Validated canonical event records: {len(records)}
+          - Production publication: `amazon-crimes/public`, via GitHub Actions on `main`
+          - Intended Pages URL: https://wcsbrintel.github.io/crimesamazonicos/
+
+          The source repository and its Pages publication are not modified.
+          Files under `amazon-crimes/netlify` are kept for archival/source fidelity only;
+          the GitHub Pages workflow serves the static frontend and public snapshots.
+
+          The deployment workflow generates cached public environmental/geographic snapshots
+          from external GIS and OSINT sources. External services and some live streams may
+          be unavailable independently of the repository copy.
+          """
+          (root/"MIGRATION.md").write_text("\n".join(x.lstrip() for x in summary.splitlines())+"\n",encoding="utf-8")
+          print("IMPORT_SUMMARY", json.dumps({"source_sha":source_sha,"application_files":n_files,"canonical_events":len(records)}))
+          PY
+          cd amazon-crimes
+          node scripts/validate-events.mjs
+          node --check public/assets/js/app.js
+          node --check public/assets/js/territorial-overlays.js
+          cd ..
+
+      - name: Commit and publish migrated sources to new main branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/bootstrap-amazon-crimes.yml
+          git add -A amazon-crimes .github/workflows MIGRATION.md
+          git diff --cached --check
+          git commit -m "Migrate complete Amazon Crimes Observatory from WCS public branch"
+          git push origin HEAD:main

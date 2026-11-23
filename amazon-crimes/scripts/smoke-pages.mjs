@@ -77,6 +77,46 @@ try {
   assert(ibamaHealth.features > 0, 'IBAMA official source has no valid 2025 records');
   assert(ibamaHealth.domNodes > 0, 'IBAMA markers are not visible on the map');
   assert(ibamaHealth.enabled.length > 0, 'IBAMA thematic categories are all disabled');
+  // Every DOM marker corresponds to one exact numeric coordinate pair.
+  // No pixel-binning, zoom clusters or skipped groups.
+  const exactLocationAudit = await page.evaluate(async () => {
+    const response = await fetch(new URL('./data/ibama-2025.json', document.baseURI), {cache:'no-store'});
+    if (!response.ok) throw new Error('IBAMA source unavailable: HTTP ' + response.status);
+    const dataset = await response.json();
+    const all = dataset.features.filter(f => f.geometry?.type === 'Point' && f.properties?.date?.startsWith('2025-'));
+    const sites = new Map();
+    for (const f of all) {
+      const key = Number(f.geometry.coordinates[0]) + ',' + Number(f.geometry.coordinates[1]);
+      sites.set(key, (sites.get(key)||0)+1);
+    }
+    return {
+      records: all.length,
+      distinctLocations: sites.size,
+      coincidentLocations: [...sites.values()].filter(n=>n>1).length,
+      exactMarkerModuleLoaded: !!document.querySelector('.ibama-html-pin'),
+      markersWithMultipleRecords: document.querySelectorAll('.ibama-html-pin.ibama-html-cluster').length
+    };
+  });
+  console.log('IBAMA EXACT-LOCATION AUDIT:', JSON.stringify(exactLocationAudit));
+  assert(exactLocationAudit.records===ibamaHealth.features,'IBAMA audit record count differs');
+  assert(exactLocationAudit.distinctLocations > 0, 'No distinct exact coordinates loaded');
+  assert(ibamaHealth.dom.selectedDistinctLocations === exactLocationAudit.distinctLocations,
+         'Some IBAMA distinct coordinates were merged or omitted');
+  assert(ibamaHealth.dom.domMarkers > 0, 'No exact-location pins in viewport');
+  if (exactLocationAudit.markersWithMultipleRecords) {
+    const first = page.locator('.ibama-html-pin.ibama-html-cluster').first();
+    await first.click({force:true});
+    await page.waitForFunction(()=>!!document.querySelector('.ibama-case-choice'),null,{timeout:7000});
+    const choices = await page.locator('.ibama-case-choice').count();
+    assert(choices>1,'Coincident-location pin does not show selectable records');
+    await page.locator('.ibama-case-choice').first().click({force:true});
+    assert(await page.locator('.ibama-choice-back').count()===1,
+      'Individual IBAMA record did not open from the exact-coordinate list');
+    await page.locator('.ibama-choice-back').click({force:true});
+    assert(await page.locator('.ibama-case-choice').count()>1,
+      'Return to exact-coordinate selection failed');
+    await page.keyboard.press('Escape');
+  }
   assert(mapState.diagnostics?.layer,'Map crime-events layer missing');
   assert(mapState.diagnostics?.source,'Map event GeoJSON source missing');
   assert(mapState.diagnostics?.rendered>0,'Crime-event circles not visibly rendered on the map');

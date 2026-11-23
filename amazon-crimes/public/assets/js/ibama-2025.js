@@ -1,6 +1,7 @@
 // Independent 2025 IBAMA administrative layer. Does not modify canonical OSINT events.
 import { createIbamaDomOverlay } from './ibama-2025-dom.js?v=20261123-official-popup-v2';
 import { createOfficialExplorer } from './official-explorer.js?v=20261123-2';
+import { createIbamaKde } from './ibama-kde.js?v=20261123-kde1';
 const TYPES = [
   ['deforestation','#da7048',{pt:'Desmatamento',en:'Deforestation',es:'Deforestación'}],
   ['logging','#aa814b',{pt:'Madeira e exploração florestal',en:'Logging and forest products',es:'Madera y explotación forestal'}],
@@ -21,6 +22,7 @@ const id = 'ibama-official-2025', source = 'ibama-2025-source';
 const enabled = new Set();
 let map, lib, getLanguage, features=[], loadState='loading', snapshotStats={};
 let domOverlay = null;
+let kdeOverlay = null;
 let officialExplorer = null;
 let officialMode = false;
 const emptyEnabled = new Set();
@@ -46,7 +48,10 @@ function render(){
 // Avoid duplicating thousands of enriched records in a hidden MapLibre GeoJSON
 // source on every text-filter change: that stalls the map and is unnecessary.
 function install(){ domOverlay?.schedule(); }
-function updateVisibility(){ domOverlay?.schedule(); }
+function updateVisibility(){
+ domOverlay?.schedule();
+ kdeOverlay?.setSelected(officialMode && officialExplorer ? officialExplorer.selected() : []);
+}
 function recordDetails(props) {
  const tr=copy[lang()];
  const extra=props.official||{};
@@ -199,6 +204,15 @@ export function installIbama2025(theMap,theLibrary,languageGetter){
   }
  });
  officialExplorer.init();
+ kdeOverlay=createIbamaKde({map});
+ kdeOverlay.init();
+ const densityToggle=document.getElementById('official-kde-toggle');
+ densityToggle?.addEventListener('change',()=>{
+   kdeOverlay?.setEnabled(Boolean(densityToggle.checked));
+   const legend=document.getElementById('official-kde-legend');
+   if(legend) legend.hidden=!densityToggle.checked;
+ });
+ kdeOverlay.setEnabled(Boolean(densityToggle?.checked));
  domOverlay=createIbamaDomOverlay({map,maplibregl:lib,getFeatures:()=>officialMode?officialExplorer.selected():[],getEnabledCategories:()=>officialMode?officialExplorer.enabled():emptyEnabled,getLanguage:()=>lang(),onSingle:popup,onGroup:groupPopup});
  domOverlay.start();
  map.on('style.load',install);
@@ -226,7 +240,8 @@ export function setIbamaOfficialMode(next) {
  officialMode=Boolean(next);
  closeOfficialPopup();
  officialExplorer?.setMode(officialMode?'official':'osint');
+ kdeOverlay?.setOfficial(officialMode);
  updateVisibility();
  domOverlay?.schedule();
 }
-export function ibama2025Health(){return {status:loadState,features:features.length,enabled:[...enabled],stats:snapshotStats,layer:!!map?.getLayer?.(id),dom:domOverlay?.health()||null,explorer:officialExplorer?.status()||null};}
+export function ibama2025Health(){return {status:loadState,features:features.length,enabled:[...enabled],stats:snapshotStats,layer:!!map?.getLayer?.(id),dom:domOverlay?.health()||null,explorer:officialExplorer?.status()||null,kde:kdeOverlay?.health()||null};}

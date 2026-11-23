@@ -106,7 +106,7 @@ try {
     assert(dot.border==='0px' && dot.dotBorder==='0px','IBAMA points must have no border');
     if (dot.cluster) {
       assert(dot.outerWidth>=20 && dot.outerWidth<=26,'Exact-coordinate group marker must be modest in size');
-      assert(/^\\d+$/.test(dot.content),'Exact-coordinate group marker must show its record count');
+      assert(/^[0-9]+$/.test(dot.content),'Exact-coordinate group marker must show its record count');
     } else {
       assert(dot.dotWidth<=6 && dot.dotHeight<=6,'Individual official dots must stay at 5px');
       assert(dot.content==='','Individual official map dots cannot display count badges');

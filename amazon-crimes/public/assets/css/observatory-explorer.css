@@ -38,6 +38,9 @@ body[data-data-view="official"] .feed-card>.section-head,
 body[data-data-view="official"] #event-feed { display:none!important; }
 body[data-data-view="official"] .official-rail { display:flex; flex-direction:column; flex:1; min-height:0; }
 body[data-data-view="official"] .event-html-pin { display:none!important; }
+body[data-data-view="official"] .live-pill,
+body[data-data-view="official"] .map-footer,
+body[data-data-view="official"] .layers-panel>.layer-section:not(.future) { display:none!important; }
 body[data-data-view="osint"] .ibama-html-pin { display:none!important; }
 body[data-data-view="osint"] .official-rail { display:none!important; }
 .official-rail[hidden] { display:none!important; }

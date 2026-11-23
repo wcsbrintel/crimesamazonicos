@@ -1,5 +1,5 @@
 // Independent 2025 IBAMA administrative layer. Does not modify canonical OSINT events.
-import { createIbamaDomOverlay } from './ibama-2025-dom.js?v=20261123-official-popup-v2';
+import { createIbamaDomOverlay } from './ibama-2025-dom.js?v=20261123-hotspots1';
 import { createOfficialExplorer } from './official-explorer.js?v=20261123-2';
 import { createIbamaKde } from './ibama-kde.js?v=20261123-kde1';
 const TYPES = [

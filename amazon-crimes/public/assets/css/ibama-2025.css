@@ -7,3 +7,9 @@
 .ibama-record-section ul{padding-left:18px;margin:0}
 .ibama-record-section li{margin:5px 0;overflow-wrap:anywhere}
 .ibama-taxon{font-style:italic}
+
+.ibama-narrative,.ibama-tad-detail { border-left:2px solid var(--green); padding-left:11px; margin-top:11px; }
+.ibama-narrative p,.ibama-tad-detail p { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.65; margin:7px 0; }
+.ibama-narrative small,.ibama-tad-detail small { display:block; font-size:9px; color:var(--muted); margin:4px 0 8px; }
+.ibama-tad-detail { margin:9px 0; }
+.ibama-tad-detail>strong { font-size:11px; }

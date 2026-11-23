@@ -74,7 +74,8 @@
             <aside id="layers-panel" class="layers-panel" aria-hidden="true">
               <div class="layers-panel-head"><div><strong data-i18n="layerCatalog">Catálogo de camadas OSINT</strong><p data-i18n="layerCatalogHint">A estrutura já reserva espaço para dados ambientais, apreensões, segurança, sensores e territórios.</p></div><button id="layers-close" aria-label="Fechar">×</button></div>
               <section class="layer-section"><div class="layer-section-title"><span data-i18n="crimeLayers">Crimes ambientais</span><div><button id="layers-all" class="tiny" data-i18n="allCrimeLayers">Todas as categorias</button><button id="layers-none" class="tiny" data-i18n="none">Nenhuma</button></div></div><div id="crime-layer-list" class="layer-list"></div></section>
-              <section class="layer-section future"><div class="layer-section-title"><span data-i18n="futureLayers">Camadas futuras</span></div><div id="future-layer-list"></div></section>
+              <section id="ibama-layer-section" class="layer-section ibama-section" aria-label="IBAMA 2025"></section>
+               <section class="layer-section future"><div class="layer-section-title"><span data-i18n="futureLayers">Camadas futuras</span></div><div id="future-layer-list"></div></section>
             </aside>
             <aside id="media-dock" class="media-dock" hidden aria-live="polite" style="left:18px;right:auto;">
               <div class="media-dock-head">
@@ -112,7 +113,7 @@
     <footer><span class="footer-program"><span data-i18n="footerProgram">Programa de Inteligência para Conservação | WCS Brasil</span> <span aria-hidden="true">•</span> <a href="https://brasil.wcs.org" target="_blank" rel="noopener noreferrer">brasil.wcs.org</a></span><span id="last-updated">—</span></footer>
   </div>
 
-  <script type="module" src="./assets/js/app.js?v=20261117-event-dom-pins-fix2"></script>
+  <script type="module" src="./assets/js/app.js?v=20261123-ibama-2025"></script>
   <script type="module" src="./assets/js/how-it-works-link.js?v=20261115-events-repair2"></script>
   <script type="module" src="./assets/js/media-dock.js?v=20260927-3"></script>
 </body>

@@ -181,6 +181,8 @@ try {
     // Reopen shared location and verify the list/back navigation.
     await first.evaluate(button=>button.click());
     await page.waitForFunction(()=>!!document.querySelector('.ibama-case-choice'),null,{timeout:7000});
+    await page.locator('.ibama-case-choice').first().click({force:true});
+    await page.waitForFunction(()=>!!document.querySelector('.ibama-choice-back'),null,{timeout:7000});
     await page.locator('.ibama-choice-back').click({force:true});
     assert(await page.locator('.ibama-case-choice').count()>1,
       'Return to exact-coordinate selection failed');

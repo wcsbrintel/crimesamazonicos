@@ -56,13 +56,13 @@ def safe(s,n=140):
 def public_narrative(value, limit=12000):
  # The official source is public, but embedded identifiers must not be
  # indiscriminately redistributed in searchable map popups.
- text = re.sub(r"[\\x00-\\x1f]+", " ", str(value or "")).strip()
- text = re.sub(r"(?i)\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b", "[e-mail omitido]", text)
- text = re.sub(r"(?i)\\b(?:CPF|CNPJ|RG)\\s*(?:N[º°.]?\\s*)?[:#=-]?\\s*[0-9.\\-/]{7,22}", "[identificador pessoal omitido]", text)
- text = re.sub(r"(?i)\\b(?:PLACAS?)(?:\\s+(?:DO|DA|DE|N[º°.]?))?\\s*[:#=-]?\\s*[A-Z]{3}[-\\s]?[0-9][A-Z0-9][0-9]{2}\\b", "placa [omitida]", text)
- text = re.sub(r"(?i)\\b(?:RENAVAM|CHASSIS?|CHASSI)\\s*(?:N[º°.]?\\s*)?[:#=-]?\\s*[A-Z0-9-]{7,24}\\b", "[identificador de veículo omitido]", text)
- text = re.sub(r"(?i)\\b(?:TELEFONE|CELULAR|WHATSAPP)\\s*[:#=-]?\\s*\\+?[0-9() .-]{9,25}", "[contato omitido]", text)
- return re.sub(r"\\s+", " ", text).strip()[:limit]
+ text = re.sub(r"[\x00-\x1f]+", " ", str(value or "")).strip()
+ text = re.sub(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[e-mail omitido]", text)
+ text = re.sub(r"(?i)\b(?:CPF|CNPJ|RG)\s*(?:N[º°.]?\s*)?[:#=-]?\s*[0-9.\-/]{7,22}", "[identificador pessoal omitido]", text)
+ text = re.sub(r"(?i)\b(?:PLACAS?)(?:\s+(?:DO|DA|DE|N[º°.]?))?\s*[:#=-]?\s*[A-Z]{3}[-\s]?[0-9][A-Z0-9][0-9]{2}\b", "placa [omitida]", text)
+ text = re.sub(r"(?i)\b(?:RENAVAM|CHASSIS?|CHASSI)\s*(?:N[º°.]?\s*)?[:#=-]?\s*[A-Z0-9-]{7,24}\b", "[identificador de veículo omitido]", text)
+ text = re.sub(r"(?i)\b(?:TELEFONE|CELULAR|WHATSAPP)\s*[:#=-]?\s*\+?[0-9() .-]{9,25}", "[contato omitido]", text)
+ return re.sub(r"\s+", " ", text).strip()[:limit]
 
 def number(s):
  if not s:return None

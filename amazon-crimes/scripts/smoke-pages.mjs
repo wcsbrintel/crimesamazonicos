@@ -66,6 +66,17 @@ try {
   console.log('MAP HEALTH:',JSON.stringify(mapState));
   assert(mapState.diagnostics?.mapConstructed,'MapLibre map instance was not initialized');
   assert(mapState.diagnostics?.styleLoaded,'Map style did not load');
+  // Regression test: official 2025 IBAMA records must be visible, not merely counted.
+  await page.waitForFunction(() => window.__amazonMapHealth?.().ibama?.status === 'ready', null, {timeout: 30000});
+  await page.waitForFunction(() => document.querySelectorAll('.ibama-html-pin').length > 0, null, {timeout: 15000});
+  const ibamaHealth = await page.evaluate(() => ({
+    ...window.__amazonMapHealth?.().ibama,
+    domNodes: document.querySelectorAll('.ibama-html-pin').length
+  }));
+  console.log('IBAMA 2025 VISIBLE POINTS:',JSON.stringify(ibamaHealth));
+  assert(ibamaHealth.features > 0, 'IBAMA official source has no valid 2025 records');
+  assert(ibamaHealth.domNodes > 0, 'IBAMA markers are not visible on the map');
+  assert(ibamaHealth.enabled.length > 0, 'IBAMA thematic categories are all disabled');
   assert(mapState.diagnostics?.layer,'Map crime-events layer missing');
   assert(mapState.diagnostics?.source,'Map event GeoJSON source missing');
   assert(mapState.diagnostics?.rendered>0,'Crime-event circles not visibly rendered on the map');

@@ -1,5 +1,5 @@
 import { translations } from './i18n.js';
-import { installIbama2025, refreshIbamaLanguage, ibama2025Health, setIbamaOfficialMode } from './ibama-2025.js?v=20261123-globalrole1';
+import { installIbama2025, refreshIbamaLanguage, ibama2025Health, setIbamaOfficialMode } from './ibama-2025.js?v=20261123-globalrole2';
 import { preferredLanguage, selectLanguage, listenLanguage } from './language-preference.js?v=20261115-unified';
 import { createTemporalFilter } from './temporal-filter.js?v=20261115-lastyear';
 import { crimeTypes, crimeTypeMeta, mapConfig, futureLayerGroups } from './config.js';
@@ -205,6 +205,10 @@ function setLanguage(next) {
   renderLayerPanel();
   render();
   refreshIbamaLanguage();
+  if(dataView==='official'){
+    const title=document.querySelector('#layers-panel .layers-panel-head strong');
+    if(title)title.textContent=({pt:'Camadas ambientais adicionais',en:'Additional environmental layers',es:'Capas ambientales adicionales'}[language]||'Additional environmental layers');
+  }
 }
 
 listenLanguage(next=>{if(next!==language)setLanguage(next);});

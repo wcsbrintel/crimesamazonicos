@@ -161,6 +161,18 @@ try {
     await page.locator('.ibama-case-choice').first().click({force:true});
     assert(await page.locator('.ibama-choice-back').count()===1,
       'Individual IBAMA record did not open from the exact-coordinate list');
+    await page.waitForTimeout(550);
+    const officialCardLayout=await page.evaluate(()=>{
+      const card=document.querySelector('.ibama-official-popup');
+      const area=document.querySelector('#map');
+      if(!card||!area)return null;
+      const box=card.getBoundingClientRect(), map=area.getBoundingClientRect();
+      return {left:box.left-map.left,top:box.top-map.top,right:map.right-box.right,bottom:map.bottom-box.bottom,width:box.width,height:box.height,mapWidth:map.width,mapHeight:map.height};
+    });
+    console.log('OFFICIAL POPUP FIT',JSON.stringify(officialCardLayout));
+    assert(officialCardLayout && officialCardLayout.left>=-18 && officialCardLayout.top>=-18 &&
+           officialCardLayout.right>=-18 && officialCardLayout.bottom>=-18,
+           'Official popup must fit inside the map viewport');
     const detailTitle=await page.locator('.ibama-official-popup .ibama-popup>strong').first().textContent();
     assert(/Official Data|Dados Oficiais|Datos oficiales/.test(detailTitle||''),'Detail popup must use source-neutral title');
     await page.evaluate(()=>document.querySelector('.ibama-html-pin:not(.ibama-html-cluster)')?.click());

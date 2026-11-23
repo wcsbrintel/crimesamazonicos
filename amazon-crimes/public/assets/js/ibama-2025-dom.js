@@ -11,7 +11,7 @@ export function exactCoordinateGroups(features, enabledCategories) {
   const sites = new Map();
   for (const feature of features || []) {
     const category = feature?.properties?.category || 'other';
-    if (!enabledCategories.has(category)) continue;
+    if (!(feature.properties?.categories || [category]).some(cat=>enabledCategories.has(cat))) continue;
     if (feature?.geometry?.type !== 'Point') continue;
     const coordinates = feature.geometry.coordinates;
     if (!Array.isArray(coordinates) || coordinates.length < 2) continue;
@@ -26,7 +26,7 @@ export function exactCoordinateGroups(features, enabledCategories) {
       sites.set(key, site);
     }
     site.members.push(feature);
-    site.categories.add(category);
+    for (const c of (feature.properties?.categories||[category])) if (enabledCategories.has(c))site.categories.add(c);
   }
   return [...sites.values()];
 }

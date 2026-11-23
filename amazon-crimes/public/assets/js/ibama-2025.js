@@ -41,28 +41,11 @@ function render(){
  panel.querySelector('#ibama-all').addEventListener('click',()=>{TYPES.forEach(t=>enabled.add(t[0]));render();updateVisibility();});
  panel.querySelector('#ibama-none').addEventListener('click',()=>{enabled.clear();render();updateVisibility();});
 }
-function install(){
- if(!map?.isStyleLoaded?.()) return;
- if(!map.getSource(source))map.addSource(source,{type:'geojson',data:fc(),cluster:false});
- else map.getSource(source).setData(fc());
-
- if(!map.getLayer(id))map.addLayer({id,type:'circle',source,paint:{
- 'circle-color':['match',['get','category'],...TYPES.flatMap(t=>[t[0],t[1]]),'#8e9b9c'],
- 'circle-radius':['interpolate',['linear'],['zoom'],2,3.5,7,5.1,12,7],
- 'circle-stroke-width':1.3,'circle-stroke-color':'#ffffff','circle-opacity':0.83}});
- updateVisibility();
-}
-function updateVisibility(){
- if(!map?.isStyleLoaded?.())return;
- const activeRecords = officialMode && officialExplorer ? officialExplorer.selected() : [];
- const activeCategories = officialMode && officialExplorer ? officialExplorer.enabled() : emptyEnabled;
- // DOM points handle the interaction; do not draw a duplicate MapLibre circle on top.
- if(map.getLayer(id))map.setLayoutProperty(id,'visibility','none');
-
- // Keep individual features only. Never use screen-based or zoom-based clusters.
- if(map.getSource(source))map.getSource(source).setData({type:'FeatureCollection',features:activeRecords});
- domOverlay?.schedule();
-}
+// All official points are native map markers with exact-coordinate selection.
+// Avoid duplicating thousands of enriched records in a hidden MapLibre GeoJSON
+// source on every text-filter change: that stalls the map and is unnecessary.
+function install(){ domOverlay?.schedule(); }
+function updateVisibility(){ domOverlay?.schedule(); }
 function recordDetails(props) {
  const tr=copy[lang()];
  const extra=props.official||{};

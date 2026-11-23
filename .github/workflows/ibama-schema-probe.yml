@@ -1,0 +1,17 @@
+name: Probe IBAMA 2025 official CSV schemas
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/ibama-schema-probe.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - name: Inspect source headers and categorical distributions only
+        run: python3 amazon-crimes/scripts/inspect-ibama-sources.py

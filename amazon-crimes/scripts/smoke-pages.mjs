@@ -105,7 +105,7 @@ try {
   assert(ibamaHealth.dom.domMarkers > 0, 'No exact-location pins in viewport');
   if (exactLocationAudit.markersWithMultipleRecords) {
     const first = page.locator('.ibama-html-pin.ibama-html-cluster').first();
-    await first.click({force:true});
+    await first.evaluate(button => button.click()); // Exact-coordinate markers overlap in dense areas: dispatch to the selected marker
     await page.waitForFunction(()=>!!document.querySelector('.ibama-case-choice'),null,{timeout:7000});
     const choices = await page.locator('.ibama-case-choice').count();
     assert(choices>1,'Coincident-location pin does not show selectable records');

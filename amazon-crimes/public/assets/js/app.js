@@ -1,4 +1,5 @@
 import { translations } from './i18n.js';
+import { installIbama2025, refreshIbamaLanguage, ibama2025Health } from './ibama-2025.js?v=20261123-1';
 import { preferredLanguage, selectLanguage, listenLanguage } from './language-preference.js?v=20261115-unified';
 import { createTemporalFilter } from './temporal-filter.js?v=20261115-lastyear';
 import { crimeTypes, crimeTypeMeta, mapConfig, futureLayerGroups } from './config.js';
@@ -140,6 +141,7 @@ function initMap() {
   });
   map.on('click', handleMapClick);
   map.on('mousemove', handleMapHover);
+  installIbama2025(map, maplibregl, () => language);
   map.on('zoom', updateHtmlMarkerScale);
   // Projection/style changes should never be able to orphan the event source/layer.
   map.on('idle', () => {
@@ -201,6 +203,7 @@ function setLanguage(next) {
   populateFilters();
   renderLayerPanel();
   render();
+  refreshIbamaLanguage();
 }
 
 listenLanguage(next=>{if(next!==language)setLanguage(next);});
@@ -1390,6 +1393,7 @@ window.__amazonMapHealth = () => {
     htmlEventMarkers:eventHtmlMarkers.size,
     mapElementSize:node?{width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height}:null,
     zoom:map?.getZoom?.(),center:map?.getCenter?.().toArray?.(),renderError,
+    ibama:ibama2025Health(),
     territorial:territorialOverlays.map(spec=>({id:spec.id,enabled:activeAuxLayers.has(spec.id),layer:!!map?.getLayer?.('territory-'+spec.id),source:!!map?.getSource?.(spec.source||'territory-source-'+spec.id),visibility:map?.getLayer?.('territory-'+spec.id)?map.getLayoutProperty('territory-'+spec.id,'visibility'):null,tiles:spec.tiles?.[0]?.slice(0,180)}))
   };
 };

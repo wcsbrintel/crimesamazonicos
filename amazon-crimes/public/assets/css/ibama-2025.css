@@ -14,57 +14,87 @@
 .ibama-tad-detail { margin:9px 0; }
 .ibama-tad-detail>strong { font-size:11px; }
 
-/* Official IBAMA map language: uniform miniature black/grey dots.
-   The outer 15px button is invisible and remains easy to click;
-   the visible 5px circle has no border, halo, ring, icon, or count. */
-body[data-data-view="official"] .ibama-html-pin,
-body[data-data-view="official"] .ibama-html-pin.ibama-html-cluster,
-body[data-data-view="official"] .ibama-html-pin.ibama-html-mixed {
-  width: 15px !important;
-  height: 15px !important;
-  min-width: 15px !important;
-  min-height: 15px !important;
-  box-sizing: border-box !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: transparent !important;
-  font-size: 0 !important;
-  text-shadow: none !important;
-  transform: none;
-  display: grid !important;
-  place-items: center !important;
-  cursor: pointer;
+/* Compact interactive official-data markers. No spatial clustering is used.
+   Marker position is always MapLibre-owned (never override transform). */
+body[data-data-view="official"] .ibama-html-pin {
+  box-sizing:border-box !important;
+  width:12px !important;
+  height:12px !important;
+  min-width:12px !important;
+  min-height:12px !important;
+  padding:0 !important;
+  border:0 !important;
+  outline:0 !important;
+  box-shadow:none !important;
+  border-radius:50% !important;
+  background:transparent !important;
+  color:transparent !important;
+  font-size:0 !important;
+  text-shadow:none !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  cursor:pointer;
+  pointer-events:auto;
+  touch-action:manipulation;
 }
 body[data-data-view="official"] .ibama-html-pin::after {
-  content: "";
-  display: block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #242729;
-  border: 0;
-  box-shadow: none;
-  pointer-events: none;
+  content:"";
+  display:block;
+  width:5px;
+  height:5px;
+  background:var(--ibama-color,#8e9b9c);
+  border-radius:50%;
+  border:0;
+  box-shadow:none;
+  pointer-events:none;
+  flex:none;
+}
+body[data-data-view="official"] .ibama-html-pin.ibama-html-cluster {
+  width:24px !important;
+  height:24px !important;
+  min-width:24px !important;
+  min-height:24px !important;
+  border:0 !important;
+  border-radius:50% !important;
+  background:var(--ibama-color,#8e9b9c) !important;
+  color:#111 !important;
+  font-size:10px !important;
+  font-weight:800 !important;
+  line-height:1 !important;
+  text-shadow:none !important;
+  box-shadow:0 1px 3px rgba(0,0,0,.15) !important;
 }
 body[data-data-view="official"] .ibama-html-pin.ibama-html-cluster::after {
-  background: #747879;
+  display:none;
 }
 body[data-data-view="official"] .ibama-html-pin:hover::after,
 body[data-data-view="official"] .ibama-html-pin:focus-visible::after {
-  background: #050505;
+  background:var(--ibama-color,#8e9b9c);
 }
 body[data-data-view="official"] .ibama-html-pin:hover,
 body[data-data-view="official"] .ibama-html-pin:focus-visible {
-  border: 0 !important;
-  box-shadow: none !important;
-  outline: none !important;
-  transform: none !important;
+  outline:none !important;
+  border:0 !important;
 }
 body[data-data-view="official"] .ibama-html-pin:focus-visible::after {
-  outline: 1px dotted #242729;
-  outline-offset: 3px;
+  outline:1px dotted #333;
+  outline-offset:3px;
+}
+body[data-data-view="official"] .official-results {
+  display:none !important;
+}
+body[data-data-view="official"] .ibama-official-popup {
+  z-index:50;
+  pointer-events:auto;
+}
+body[data-data-view="official"] .ibama-official-popup .maplibregl-popup-content {
+  width:min(430px,calc(100vw - 45px));
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+body[data-data-view="official"] .ibama-official-popup .ibama-detailed,
+body[data-data-view="official"] .ibama-official-popup .ibama-choices {
+  max-height:none;
+  overflow:visible;
 }

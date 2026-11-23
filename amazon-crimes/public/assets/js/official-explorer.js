@@ -97,7 +97,7 @@ export function createOfficialExplorer({getLanguage,onChange,onSelectRecord}){
   const more=$('official-more');if(more)more.hidden=selected.length<=visibleLimit;
  }
  function refresh(){
-  selected=ready?filtered():[];
+  selected=ready?filtered().sort((a,b)=>String(b.properties?.date||'').localeCompare(String(a.properties?.date||''))||String(a.properties?.id||'').localeCompare(String(b.properties?.id||''))):[];
   const lang=language();
   const locations=new Set(selected.map(signature)).size;
   for(const [id,v] of [['official-total',fmt(selected.length,lang)],['official-location-count',fmt(locations,lang)],['official-category-count',fmt(enabled.size,lang)],['official-result-count',fmt(selected.length,lang)]])if($(id))$(id).textContent=v;

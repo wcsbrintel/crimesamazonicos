@@ -35,6 +35,11 @@ export function createIbamaDomOverlay({
   map, maplibregl, getFeatures, getEnabledCategories, getLanguage,
   onSingle, onGroup
 }) {
+  const colors = {
+    deforestation:'#da7048', logging:'#aa814b', flora_other:'#7dba72',
+    wildlife:'#56a989', fishing:'#4cace0', mining:'#d7b14b',
+    pollution:'#9584d0', fire:'#df824d', other:'#8e9b9c'
+  };
   const markers = new Map();
   let timer = null;
   let installed = false;
@@ -80,12 +85,19 @@ export function createIbamaDomOverlay({
       visibleSites += 1;
       if (count > 1) coincidentSites += 1;
       wanted.add(group.key);
-      const category = group.members[0]?.properties?.category || 'other';
+      // The active selection determines the visible colour; overlap is grouped
+      // ONLY for mathematically identical coordinate pairs.
+      const enabledCategories = getEnabledCategories();
+      const categories = group.members.flatMap(f=>f?.properties?.categories || [f?.properties?.category || 'other']);
+      const category = categories.find(c=>enabledCategories.has(c)) || categories[0] || 'other';
       let entry = markers.get(group.key);
       if (!entry) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'ibama-html-pin';
+        // Prevent map drag/hover layers from stealing marker pointer events.
+        button.addEventListener('pointerdown', event => event.stopPropagation());
+        button.addEventListener('mousedown', event => event.stopPropagation());
         const marker = new maplibregl.Marker({element:button, anchor:'center'})
           .setLngLat([group.lon, group.lat]).addTo(map);
         entry = {marker, button, group};
@@ -103,12 +115,12 @@ export function createIbamaDomOverlay({
       }
       entry.group = group;
       entry.button.classList.toggle('ibama-html-cluster', count > 1);
-      // Every site uses the same unobtrusive dot: no number, colored pin,
-      // ring, flag or category icon. Exact overlaps still open a choice list.
-      entry.button.textContent = '';
+      entry.button.style.setProperty('--ibama-color', colors[category] || colors.other);
+      // Count is shown only for records sharing the exact same geolocation.
+      entry.button.textContent = count > 1 ? String(count) : '';
       const description = count > 1
-        ? count.toLocaleString(locale) + ' IBAMA 2025 records at exactly the same coordinates'
-        : 'IBAMA 2025 · ' + category;
+        ? count.toLocaleString(locale) + ' official records at exactly the same coordinates'
+        : 'Official Data · ' + category;
       entry.button.setAttribute('aria-label', description);
       entry.button.title = description;
     }

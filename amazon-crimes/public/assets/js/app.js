@@ -1,5 +1,5 @@
 import { translations } from './i18n.js';
-import { installIbama2025, refreshIbamaLanguage, ibama2025Health } from './ibama-2025.js?v=20261123-exact1';
+import { installIbama2025, refreshIbamaLanguage, ibama2025Health } from './ibama-2025.js?v=20261123-evidence2';
 import { preferredLanguage, selectLanguage, listenLanguage } from './language-preference.js?v=20261115-unified';
 import { createTemporalFilter } from './temporal-filter.js?v=20261115-lastyear';
 import { crimeTypes, crimeTypeMeta, mapConfig, futureLayerGroups } from './config.js';

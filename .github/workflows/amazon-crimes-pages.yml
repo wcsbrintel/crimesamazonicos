@@ -86,6 +86,9 @@ jobs:
         with:
           path: amazon-crimes/public
 
+      - name: Allow GitHub Pages artifact metadata to propagate
+        run: sleep 15
+
       - name: Deploy Amazon Crimes
         id: deployment
         uses: actions/deploy-pages@v4

@@ -102,3 +102,13 @@ body[data-data-view="official"] .ibama-official-popup .ibama-choices {
   max-height:none;
   overflow:visible;
 }
+
+/* Optional official-data Hotspots map overlay controls. */
+.official-kde-tools { margin:12px 0 8px; border:1px solid var(--line); border-radius:10px; padding:10px 11px; background:var(--surface-2); }
+.official-kde-switch { display:flex; align-items:center; gap:9px; cursor:pointer; font-size:12px; font-weight:750; color:var(--text); }
+.official-kde-switch input { width:15px; height:15px; accent-color:var(--green); margin:0; cursor:pointer; }
+.official-kde-legend { padding-top:10px; }
+.official-kde-legend[hidden] { display:none!important; }
+#official-kde-legend-caption { display:block; font-size:10px; color:var(--muted); line-height:1.45; margin-bottom:7px; }
+.official-kde-gradient { height:7px; border-radius:5px; background:linear-gradient(to right,rgba(48,118,205,.45),#319cd3,#55cdad,#e7e259,#f4a632,#e15a2f,#b52026); }
+.official-kde-scale { display:flex; justify-content:space-between; gap:9px; font-size:9px; margin-top:6px; color:var(--muted); }

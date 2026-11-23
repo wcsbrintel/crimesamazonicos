@@ -1,0 +1,35 @@
+name: Audit IBAMA 2025 evidence enrichment
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/ibama-enrichment-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build validated IBAMA 2025 snapshot
+        run: python3 amazon-crimes/scripts/build-ibama-2025.py --output amazon-crimes/public/data/ibama-2025.json
+      - name: Classify and enrich official evidence
+        run: python3 amazon-crimes/scripts/enrich-ibama-2025.py
+      - name: Verify authoritative matching and classify coverage
+        run: |
+          python3 - <<'PY'
+          import json
+          p=json.load(open('amazon-crimes/public/data/ibama-2025.json'))
+          a=json.load(open('amazon-crimes/public/data/ibama-2025-audit.json'))
+          assert p['year']==2025 and len(p['features'])>0
+          assert a['counters']['autos_enriched']==len(p['features']),(a['counters'].get('autos_enriched'),len(p['features']))
+          for f in p['features']:
+              assert f['properties'].get('official') and f['properties'].get('categories')
+              assert f['properties']['date'].startswith('2025-')
+              assert 'NOME_INFRATOR' not in f['properties']
+          print('VALIDATED',len(p['features']),'official autos')
+          print('RESOURCES',json.dumps(a['resources'],ensure_ascii=False))
+          print('COUNTS',json.dumps(a['counters'],ensure_ascii=False))
+          PY

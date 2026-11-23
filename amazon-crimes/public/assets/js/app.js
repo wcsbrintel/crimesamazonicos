@@ -1300,6 +1300,10 @@ function changeDataView(view) {
     const btn=document.getElementById('mode-'+key);
     if(btn){const selected=key===next;btn.classList.toggle('active',selected);btn.setAttribute('aria-pressed',String(selected));}
   }
+  const layerCatalogTitle=document.querySelector('#layers-panel .layers-panel-head strong');
+  if(layerCatalogTitle)layerCatalogTitle.textContent=next==='official'
+    ? ({pt:'Camadas ambientais adicionais',en:'Additional environmental layers',es:'Capas ambientales adicionales'}[language]||'Additional environmental layers')
+    : t('layerCatalog');
   setIbamaOfficialMode(next==='official');
   closePopup();
   if(map){

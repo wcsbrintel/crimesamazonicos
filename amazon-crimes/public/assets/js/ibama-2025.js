@@ -112,6 +112,11 @@ function fitOfficialPopup(popupView) {
  const availableHeight=Math.max(155,Math.min(420,area.height-58));
  content.style.maxHeight=availableHeight+'px';
  content.style.overflowY='auto';
+ // Every newly opened case or case-selection view starts at its header.
+ // Only the reader can scroll down afterwards.
+ content.scrollTop=0;
+ const inner=content.querySelector('.ibama-detailed, .ibama-choices');
+ if(inner)inner.scrollTop=0;
  // MapLibre may choose a different anchor after setHTML. Recheck only
  // after layout is complete and shift the camera if the card is clipped.
  const reposition=()=>{
@@ -129,7 +134,11 @@ function fitOfficialPopup(popupView) {
      map.panBy([-shiftX,-shiftY],{duration:250});
    }
  };
- requestAnimationFrame(()=>requestAnimationFrame(reposition));
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{
+   const current=popupView.getElement()?.querySelector('.maplibregl-popup-content');
+   if(current && activeOfficialPopup===popupView)current.scrollTop=0;
+   reposition();
+ }));
 }
 function createOfficialPopup(location,maxWidth='450px'){
  closeOfficialPopup();

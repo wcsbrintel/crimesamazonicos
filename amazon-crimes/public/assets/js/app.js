@@ -702,6 +702,9 @@ function updateLayerVisibility() {
 }
 
 function interactiveLayerIds() {
+  // Official IBAMA uses its own pointer targets, so OSINT/auxiliary hit-testing
+  // must not intercept clicks or hover while that source is active.
+  if (dataView === 'official') return [];
   const ids = map.getLayer('crime-events') && activeCrimeLayers.size ? ['crime-events'] : [];
   if (activeAuxLayers.has('radio_stations') && map.getLayer('aux-radio_stations')) ids.push('aux-radio_stations');
   if (activeAuxLayers.has('public_cameras') && map.getLayer('aux-public_cameras')) ids.push('aux-public_cameras');
@@ -751,6 +754,7 @@ function handleMapClick(e) {
 }
 
 function handleMapHover(e) {
+  if (dataView === 'official') { map.getCanvas().style.cursor = ''; return; }
   const candidateLayers = interactiveLayerIds();
   if (!candidateLayers.length) return;
   const feature = map.queryRenderedFeatures(e.point, { layers: candidateLayers })[0];

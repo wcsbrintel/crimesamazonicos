@@ -116,8 +116,9 @@ export function createIbamaDomOverlay({
       entry.group = group;
       entry.button.classList.toggle('ibama-html-cluster', count > 1);
       entry.button.style.setProperty('--ibama-color', colors[category] || colors.other);
-      // Count is shown only for records sharing the exact same geolocation.
-      entry.button.textContent = count > 1 ? String(count) : '';
+      // One dot for every EXACT coordinate pair, regardless of record count.
+      // Shared sites still open the individual record chooser on click.
+      entry.button.textContent = '';
       const description = count > 1
         ? count.toLocaleString(locale) + ' official records at exactly the same coordinates'
         : 'Official Data · ' + category;

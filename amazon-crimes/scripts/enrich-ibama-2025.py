@@ -162,7 +162,7 @@ def main():
      "non_administrative_legal_basis":safe(get(row,"DS_ENQUADRAMENTO_NAO_ADMINISTRATIVO"),400),
      "additional_legal_basis":safe(get(row,"DS_ENQUADRAMENTO_COMPLEMENTAR"),300),
      "affected_area":area,
-     "affected_area_unit":safe(get(row,"INFRACAO_AREA"),70),
+     "affected_area_unit":"", # Unit not asserted without verified field dictionary
      "area_classification":safe(get(row,"CLASSIFICACAO_AREA"),120),
      "biomes":safe(get(row,"DS_BIOMAS_ATINGIDOS"),180),
      "protected_area":safe(get(row,"UNIDADE_CONSERVACAO"),160),

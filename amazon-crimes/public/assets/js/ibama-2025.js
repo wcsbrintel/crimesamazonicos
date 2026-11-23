@@ -1,5 +1,5 @@
 // Independent 2025 IBAMA administrative layer. Does not modify canonical OSINT events.
-import { createIbamaDomOverlay } from './ibama-2025-dom.js?v=20261123-small-dots';
+import { createIbamaDomOverlay } from './ibama-2025-dom.js?v=20261123-official-popup-v2';
 import { createOfficialExplorer } from './official-explorer.js?v=20261123-2';
 const TYPES = [
   ['deforestation','#da7048',{pt:'Desmatamento',en:'Deforestation',es:'Deforestación'}],

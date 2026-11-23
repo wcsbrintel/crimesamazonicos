@@ -109,6 +109,15 @@ try {
   });
   console.log('IBAMA EXACT-LOCATION AUDIT:', JSON.stringify(exactLocationAudit));
   assert(exactLocationAudit.records===ibamaHealth.features,'IBAMA audit record count differs');
+  // Official textual fields must stay attached to their authentic source record.
+  const narrativeAudit=await page.evaluate(async()=>{
+    const data=await (await fetch(new URL('./data/ibama-2025.json',document.baseURI),{cache:'no-store'})).json();
+    return {autosWithDetail:data.features.filter(f=>f.properties?.official?.narrative_detail).length,
+      termsWithDetail:data.features.flatMap(f=>f.properties?.seizure_terms||[]).filter(t=>t.seizure_detail).length};
+  });
+  console.log('IBAMA OFFICIAL NARRATIVES',JSON.stringify(narrativeAudit));
+  assert(narrativeAudit.autosWithDetail>0,'DES_AUTO_INFRACAO missing from official cards');
+  assert(narrativeAudit.termsWithDetail>0,'DS_TAD missing from linked seizure terms');
   assert(exactLocationAudit.distinctLocations > 0, 'No distinct exact coordinates loaded');
   assert(ibamaHealth.dom.selectedDistinctLocations === exactLocationAudit.distinctLocations,
          'Some IBAMA distinct coordinates were merged or omitted');

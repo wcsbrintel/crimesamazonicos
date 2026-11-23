@@ -1,0 +1,9 @@
+.ibama-detailed{max-height:min(70vh,680px);overflow-y:auto;line-height:1.6}
+.ibama-detail-row{padding:4px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.ibama-detail-row strong{color:var(--muted);font-weight:650}
+.ibama-detail-row span{color:var(--text)}
+.ibama-record-section{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.ibama-record-section h4{font-size:12px;margin:0 0 7px}
+.ibama-record-section ul{padding-left:18px;margin:0}
+.ibama-record-section li{margin:5px 0;overflow-wrap:anywhere}
+.ibama-taxon{font-style:italic}

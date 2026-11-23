@@ -716,6 +716,21 @@ body.how-it-works-open { overflow: hidden; }
 .mosaic-popup p { font-size:11px; line-height:1.5; margin:0 0 7px; }
 .mosaic-popup small { color:var(--muted); font-size:10px; }
 
+/* IBAMA official 2025 layer — separate from canonical OSINT events. */
+.ibama-section { border-top: 1px solid var(--line); }
+.ibama-note { margin: 6px 0 11px; font-size: 10px; line-height: 1.5; color: var(--muted); }
+.ibama-count { color: var(--green-2); font-size: 10px; font-weight: 600; }
+.ibama-actions { display:flex; gap:7px; margin: 0 0 10px; }
+.ibama-actions button { flex:1; background: var(--surface-3); color:var(--text); border:1px solid var(--line); border-radius:7px; padding:7px; font-size:10px; cursor:pointer; }
+.ibama-section .layer-row { grid-template-columns:18px 14px minmax(0,1fr); font-size:10px; }
+.ibama-section .layer-row small { color:var(--muted); }
+.ibama-source-state { margin-top:10px; color:var(--muted); font-size:10px; line-height:1.5; }
+.ibama-source-state a,.ibama-popup a { color:var(--green-2); }
+.ibama-popup { padding: 15px; color:var(--text); font-size:12px; line-height:1.55; }
+.ibama-popup>strong { font-size:15px; }
+.ibama-popup p { color:var(--muted); margin:6px 0 9px; }
+.ibama-popup div { margin:3px 0; }
+
 /* Resilient DOM-rendered event dots: these survive MapLibre style/projection resets. */
 .event-html-pin {
   display:block; box-sizing:border-box; width:11px; height:11px; padding:0;

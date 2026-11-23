@@ -1,5 +1,6 @@
 // Independent 2025 IBAMA administrative layer. Does not modify canonical OSINT events.
 import { createIbamaDomOverlay } from './ibama-2025-dom.js?v=20261123-evidence2';
+import { createOfficialExplorer } from './official-explorer.js?v=20261123-1';
 const TYPES = [
   ['deforestation','#da7048',{pt:'Desmatamento',en:'Deforestation',es:'Deforestación'}],
   ['logging','#aa814b',{pt:'Madeira e exploração florestal',en:'Logging and forest products',es:'Madera y explotación forestal'}],
@@ -20,6 +21,9 @@ const id = 'ibama-official-2025', source = 'ibama-2025-source';
 const enabled = new Set();
 let map, lib, getLanguage, features=[], loadState='loading', snapshotStats={};
 let domOverlay = null;
+let officialExplorer = null;
+let officialMode = false;
+const emptyEnabled = new Set();
 const lang=()=>copy[getLanguage?.()] ? getLanguage() : 'en';
 const html=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fc=()=>({type:'FeatureCollection',features});
@@ -50,12 +54,13 @@ function install(){
 }
 function updateVisibility(){
  if(!map?.isStyleLoaded?.())return;
- const any=enabled.size>0&&features.length>0;
+ const activeRecords = officialMode && officialExplorer ? officialExplorer.selected() : [];
+ const activeCategories = officialMode && officialExplorer ? officialExplorer.enabled() : emptyEnabled;
  // DOM points handle the interaction; do not draw a duplicate MapLibre circle on top.
  if(map.getLayer(id))map.setLayoutProperty(id,'visibility','none');
 
  // Keep individual features only. Never use screen-based or zoom-based clusters.
- if(map.getSource(source))map.getSource(source).setData({type:'FeatureCollection',features:features.filter(f=>(f.properties.categories||[f.properties.category]).some(c=>enabled.has(c)))});
+ if(map.getSource(source))map.getSource(source).setData({type:'FeatureCollection',features:activeRecords});
  domOverlay?.schedule();
 }
 function recordDetails(props) {
@@ -144,10 +149,18 @@ function groupPopup(group, location){
 }
 export function installIbama2025(theMap,theLibrary,languageGetter){
  map=theMap;lib=theLibrary;getLanguage=languageGetter;
- const panel=document.getElementById('ibama-layer-section');
- if(!panel)return;
- render();
- domOverlay=createIbamaDomOverlay({map,maplibregl:lib,getFeatures:()=>features,getEnabledCategories:()=>enabled,getLanguage:()=>lang(),onSingle:popup,onGroup:groupPopup});
+ officialExplorer=createOfficialExplorer({
+  getLanguage:()=>lang(),
+  onChange:()=>updateVisibility(),
+  onSelectRecord:(feature)=>{
+    if(!feature?.geometry?.coordinates)return;
+    const [lon,lat]=feature.geometry.coordinates;
+    map.easeTo({center:[lon,lat],zoom:Math.max(6.3,map.getZoom()),duration:450});
+    popup(feature.properties,{lng:lon,lat});
+  }
+ });
+ officialExplorer.init();
+ domOverlay=createIbamaDomOverlay({map,maplibregl:lib,getFeatures:()=>officialMode?officialExplorer.selected():[],getEnabledCategories:()=>officialMode?officialExplorer.enabled():emptyEnabled,getLanguage:()=>lang(),onSingle:popup,onGroup:groupPopup});
  domOverlay.start();
  map.on('style.load',install);
  map.on('load',install);
@@ -163,11 +176,17 @@ export function installIbama2025(theMap,theLibrary,languageGetter){
    features=data.features.filter(f=>f?.geometry?.type==='Point'&&Array.isArray(f.geometry.coordinates)&&f?.properties?.date?.startsWith('2025-'));
    snapshotStats=data.stats||{};
    loadState='ready';
-   // Turn on the 2025 thematic categories as soon as official data are available.
    if(enabled.size===0)TYPES.forEach(([key])=>enabled.add(key));
-   render();install();updateVisibility();
+   officialExplorer?.setData(features);
+   install();updateVisibility();
    domOverlay?.schedule();
- }).catch(err=>{console.error('IBAMA 2025:',err);loadState='missing';render();});
+ }).catch(err=>{console.error('IBAMA 2025:',err);loadState='missing';officialExplorer?.setError();});
 }
-export function refreshIbamaLanguage(){render();}
-export function ibama2025Health(){return {status:loadState,features:features.length,enabled:[...enabled],stats:snapshotStats,layer:!!map?.getLayer?.(id),dom:domOverlay?.health()||null};}
+export function refreshIbamaLanguage(){officialExplorer?.render();}
+export function setIbamaOfficialMode(next) {
+ officialMode=Boolean(next);
+ officialExplorer?.setMode(officialMode?'official':'osint');
+ updateVisibility();
+ domOverlay?.schedule();
+}
+export function ibama2025Health(){return {status:loadState,features:features.length,enabled:[...enabled],stats:snapshotStats,layer:!!map?.getLayer?.(id),dom:domOverlay?.health()||null,explorer:officialExplorer?.status()||null};}

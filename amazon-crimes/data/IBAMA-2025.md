@@ -4,9 +4,10 @@ A seção **IBAMA · 2025** não altera `data/events.json`. Trata de **autos de 
 
 ## Fontes utilizadas
 
-1. [IBAMA — auto de infração](https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao): 2025, data de lavratura, enquadramentos, texto original usado **somente para classificação**, operação, processo, área afetada e bioma. A descrição narrativa integral não é exposta publicamente por razões de privacidade.
+1. [IBAMA — auto de infração](https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao): 2025, data de lavratura, enquadramentos, texto original usado **somente para classificação**, operação, processo, área afetada e bioma. O campo `DES_AUTO_INFRACAO` é apresentado como **Detalhamento** após filtragem de identificadores pessoais diretos (sem inventar espécies ou quantidades). O texto pode conter dados não padronizados; a publicação é em português original, com rótulos localizados.
 2. [IBAMA — auto de infração, espécime](https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao): nomes científicos/populares, quantidade e unidade, ligados por `SEQ_AUTO_INFRACAO`. Estes itens são **espécimes registrados no auto** e não são rotulados como apreendidos sem evidência complementar.
 3. [IBAMA — termos de apreensão](https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-termo-de-apreensao): vínculo direto com auto por `SEQ_AUTO_INFRACAO` e com itens por `SEQ_TAD`.
+   - O campo `DS_TAD` aparece como **Detalhamento da apreensão** somente nos termos vinculados ao auto por `SEQ_AUTO_INFRACAO`; a chave `SEQ_TAD` associa os bens e espécimes. Narrativas são distinguíveis das quantidades estruturadas e passam por mascaramento de identificadores diretos.
 4. Espécimes apreendidos / bens apreendidos: vinculados ao termo por `SEQ_TAD`. Apenas estes itens são apresentados como efetivamente apreendidos.
 
 Não são utilizados vínculos aproximados por município, coordenada, nome de operação ou data. Nomes de infratores, CPF/CNPJ, placas, números de chassis e dados pessoais não são publicados.

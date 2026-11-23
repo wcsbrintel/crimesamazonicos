@@ -7,7 +7,7 @@ import { territorialOverlays, territorialOverlayIds, installTerritorialOverlays,
 import { mosaicDefinitions, mosaicStatus, fetchMosaic, installMosaicLayers, syncMosaicLayers, refreshMosaicData, interactiveMosaicLayerIds, mosaicByLayer, mosaicExtent } from './amazon-mosaics.js?v=20261117-remap-v1';
 
 let language = preferredLanguage();
-let mapTheme = localStorage.getItem('amazon-observatory-theme') || 'dark';
+let mapTheme = localStorage.getItem('amazon-observatory-theme') || 'light';
 let mapMode = localStorage.getItem('amazon-observatory-map-mode') || '2d';
 if (mapMode === '3d') mapMode = 'globe';
 let events = [];

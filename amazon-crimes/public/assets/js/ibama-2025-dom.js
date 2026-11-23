@@ -1,43 +1,66 @@
 /**
- * Resilient DOM-based markers for georeferenced IBAMA 2025 administrative notices.
+ * IBAMA 2025 georeferenced notice markers.
  *
- * A MapLibre stylesheet/projection swap cannot remove a Marker DOM element;
- * this protects the independent IBAMA view in 2D and Globe modes. Visible
- * points are grouped by screen-cell and category to avoid thousands of nodes.
- * Grouping recalculates on moveend and zoomend (not while panning).
+ * Distinct coordinates always retain distinct markers. Only records at the
+ * exact same numeric longitude AND latitude share a selectable marker.
+ * No screen-grid aggregation, zoom-based clustering or marker cap.
+ *
+ * DOM markers survive MapLibre style swaps and globe projection changes.
  */
+export function exactCoordinateGroups(features, enabledCategories) {
+  const sites = new Map();
+  for (const feature of features || []) {
+    const category = feature?.properties?.category || 'other';
+    if (!enabledCategories.has(category)) continue;
+    if (feature?.geometry?.type !== 'Point') continue;
+    const coordinates = feature.geometry.coordinates;
+    if (!Array.isArray(coordinates) || coordinates.length < 2) continue;
+    const lon = Number(coordinates[0]), lat = Number(coordinates[1]);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)
+        || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+    // Numeric equivalence, not rounded coordinates or pixel proximity.
+    const key = lon + ',' + lat;
+    let site = sites.get(key);
+    if (!site) {
+      site = {key, lon, lat, members: [], categories: new Set()};
+      sites.set(key, site);
+    }
+    site.members.push(feature);
+    site.categories.add(category);
+  }
+  return [...sites.values()];
+}
+
 export function createIbamaDomOverlay({
-  map,
-  maplibregl,
-  getFeatures,
-  getEnabledCategories,
-  getLanguage,
-  onSingle,
-  onGroup
+  map, maplibregl, getFeatures, getEnabledCategories, getLanguage,
+  onSingle, onGroup
 }) {
   const colors = {
-    deforestation: '#da7048',
-    logging: '#aa814b',
-    flora_other: '#7dba72',
-    wildlife: '#56a989',
-    fishing: '#4cace0',
-    mining: '#d7b14b',
-    pollution: '#9584d0',
-    fire: '#df824d',
-    other: '#8e9b9c'
+    deforestation:'#da7048', logging:'#aa814b', flora_other:'#7dba72',
+    wildlife:'#56a989', fishing:'#4cace0', mining:'#d7b14b',
+    pollution:'#9584d0', fire:'#df824d', other:'#8e9b9c'
   };
-  const markers = [];
+  const markers = new Map();
   let timer = null;
-  let visibleRecords = 0;
-  let totalGroups = 0;
   let installed = false;
+  let visibleRecords = 0;
+  let visibleSites = 0;
+  let coincidentSites = 0;
+  let selectedSites = 0;
 
   function clear() {
-    while (markers.length) markers.pop().remove();
+    for (const entry of markers.values()) entry.marker.remove();
+    markers.clear();
   }
 
-  function compact(n) {
-    return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace('.0', '') + 'k' : String(n);
+  function isVisible(lon, lat, width, height) {
+    // Globe: do not draw a marker on the opposite side of the planet.
+    try {
+      if (map.transform?.isLocationOccluded?.(maplibregl.LngLat.convert([lon, lat]))) return false;
+    } catch (error) { /* MapLibre versions without this optional method */ }
+    const pt = map.project([lon, lat]);
+    return Number.isFinite(pt.x) && Number.isFinite(pt.y)
+      && pt.x >= -20 && pt.y >= -20 && pt.x <= width + 20 && pt.y <= height + 20;
   }
 
   function render() {
@@ -46,99 +69,61 @@ export function createIbamaDomOverlay({
     const width = canvas?.clientWidth || 0;
     const height = canvas?.clientHeight || 0;
     if (!width || !height) return;
-
-    const enabled = getEnabledCategories();
-    const features = getFeatures();
-    if (!enabled.size || !features.length) {
-      clear();
-      visibleRecords = 0;
-      totalGroups = 0;
-      return;
-    }
-
-    // Per-category spatial bins preserve the meaning of individual checkboxes.
-    // At detailed zooms the grid shrinks, separating close geographic records.
-    const zoom = map.getZoom();
-    const cell = zoom <= 4 ? 62 : zoom <= 7 ? 51 : zoom <= 10 ? 39 : 28;
-    const buckets = new Map();
+    const groups = exactCoordinateGroups(getFeatures(), getEnabledCategories());
+    const wanted = new Set();
     visibleRecords = 0;
+    visibleSites = 0;
+    coincidentSites = 0;
+    selectedSites = groups.length;
+    const language = getLanguage();
+    const locale = language === 'pt' ? 'pt-BR' : language === 'es' ? 'es-ES' : 'en-US';
 
-    for (const feature of features) {
-      const cat = feature?.properties?.category || 'other';
-      if (!enabled.has(cat)) continue;
-      const coords = feature?.geometry?.coordinates;
-      if (!Array.isArray(coords) || coords.length < 2) continue;
-      const lon = Number(coords[0]), lat = Number(coords[1]);
-      if (!Number.isFinite(lon) || !Number.isFinite(lat) || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
-
-      const pos = map.project([lon, lat]);
-      if (!Number.isFinite(pos.x) || !Number.isFinite(pos.y) ||
-          pos.x < -24 || pos.y < -24 || pos.x > width + 24 || pos.y > height + 24) continue;
-      visibleRecords += 1;
-
-      const col = Math.floor(pos.x / cell), row = Math.floor(pos.y / cell);
-      const key = cat + '|' + col + '|' + row;
-      let bucket = buckets.get(key);
-      if (!bucket) {
-        bucket = { category: cat, count: 0, lonSum: 0, latSum: 0, first: feature, samples: [] };
-        buckets.set(key, bucket);
-      }
-      bucket.count += 1;
-      bucket.lonSum += lon;
-      bucket.latSum += lat;
-      if (bucket.samples.length < 8) bucket.samples.push(feature);
-    }
-
-    let groups = [...buckets.values()];
-    totalGroups = groups.length;
-    // Bound DOM work while keeping minority categories represented.
-    const MAX_MARKERS = 650;
-    if (groups.length > MAX_MARKERS) {
-      groups.sort((a, b) => b.count - a.count);
-      const represented = new Set();
-      const kept = [];
-      for (const group of groups) {
-        if (represented.has(group.category)) continue;
-        kept.push(group);
-        represented.add(group.category);
-      }
-      for (const group of groups) {
-        if (kept.length >= MAX_MARKERS) break;
-        if (!kept.includes(group)) kept.push(group);
-      }
-      groups = kept;
-    }
-
-    clear();
-    const locale = getLanguage() === 'pt' ? 'pt-BR' : getLanguage() === 'es' ? 'es-ES' : 'en-US';
     for (const group of groups) {
-      const lon = group.lonSum / group.count;
-      const lat = group.latSum / group.count;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'ibama-html-pin' + (group.count > 1 ? ' ibama-html-cluster' : '');
-      btn.style.setProperty('--ibama-color', colors[group.category] || '#8e9b9c');
-      if (group.count > 1) btn.textContent = compact(group.count);
-      btn.setAttribute('aria-label', 'IBAMA 2025: ' + group.count.toLocaleString(locale) + ' · ' + group.category);
-      btn.title = btn.getAttribute('aria-label');
-      btn.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopPropagation();
-        const center = { lng: lon, lat };
-        if (group.count > 1) {
-          if (map.getZoom() < 13.6) {
-            map.easeTo({ center: [lon, lat], zoom: Math.min(15, map.getZoom() + 2.3), duration: 400 });
-          } else {
-            onGroup(group, center);
-          }
-        } else {
-          onSingle(group.first.properties, center);
-        }
-      });
-      const marker = new maplibregl.Marker({ element: btn, anchor: 'center' })
-        .setLngLat([lon, lat])
-        .addTo(map);
-      markers.push(marker);
+      if (!isVisible(group.lon, group.lat, width, height)) continue;
+      const count = group.members.length;
+      visibleRecords += count;
+      visibleSites += 1;
+      if (count > 1) coincidentSites += 1;
+      wanted.add(group.key);
+      const multipleTypes = group.categories.size > 1;
+      const category = group.members[0]?.properties?.category || 'other';
+      const color = multipleTypes ? '#b18ad0' : (colors[category] || colors.other);
+      let entry = markers.get(group.key);
+      if (!entry) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'ibama-html-pin';
+        const marker = new maplibregl.Marker({element:button, anchor:'center'})
+          .setLngLat([group.lon, group.lat]).addTo(map);
+        entry = {marker, button, group};
+        markers.set(group.key, entry);
+        button.addEventListener('click', event => {
+          event.preventDefault();
+          event.stopPropagation();
+          const selected = entry.group;
+          const location = {lng:selected.lon, lat:selected.lat};
+          // A shared-location pin opens the choice list immediately:
+          // no automatic zoom and no arbitrary selection of the first record.
+          if (selected.members.length > 1) onGroup(selected, location);
+          else onSingle(selected.members[0].properties, location);
+        });
+      }
+      entry.group = group;
+      entry.button.classList.toggle('ibama-html-cluster', count > 1);
+      entry.button.classList.toggle('ibama-html-mixed', multipleTypes);
+      entry.button.style.setProperty('--ibama-color', color);
+      entry.button.textContent = count > 1 ? String(count) : '';
+      const description = count > 1
+        ? count.toLocaleString(locale) + ' IBAMA 2025 records at exactly the same coordinates'
+        : 'IBAMA 2025 · ' + category;
+      entry.button.setAttribute('aria-label', description);
+      entry.button.title = description;
+    }
+    for (const [key, entry] of markers) {
+      if (!wanted.has(key)) {
+        entry.marker.remove();
+        markers.delete(key);
+      }
     }
   }
 
@@ -146,14 +131,13 @@ export function createIbamaDomOverlay({
     if (timer !== null) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
-      try { render(); } catch (error) { console.error('IBAMA DOM marker render failed:', error); }
-    }, 70);
+      try { render(); }
+      catch (error) { console.error('IBAMA exact-coordinate marker render failed:', error); }
+    }, 60);
   }
-
   function start() {
     if (installed) return;
     installed = true;
-    // Independent from style.load: GeoJSON styling cannot suppress DOM markers.
     map.on('load', schedule);
     map.on('moveend', schedule);
     map.on('zoomend', schedule);
@@ -161,15 +145,15 @@ export function createIbamaDomOverlay({
     map.on('style.load', schedule);
     schedule();
   }
-
   return {
-    start,
-    schedule,
+    start, schedule, clear,
     health: () => ({
-      domMarkers: markers.length,
-      groupedCells: totalGroups,
-      recordsInViewport: visibleRecords,
-      enabledCategories: [...getEnabledCategories()]
+      domMarkers:markers.size,
+      exactLocationsOnMap:visibleSites,
+      coincidentLocationsOnMap:coincidentSites,
+      selectedDistinctLocations:selectedSites,
+      recordsInViewport:visibleRecords,
+      enabledCategories:[...getEnabledCategories()]
     })
   };
 }

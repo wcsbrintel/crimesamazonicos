@@ -13,3 +13,58 @@
 .ibama-narrative small,.ibama-tad-detail small { display:block; font-size:9px; color:var(--muted); margin:4px 0 8px; }
 .ibama-tad-detail { margin:9px 0; }
 .ibama-tad-detail>strong { font-size:11px; }
+
+/* Official IBAMA map language: uniform miniature black/grey dots.
+   The outer 15px button is invisible and remains easy to click;
+   the visible 5px circle has no border, halo, ring, icon, or count. */
+body[data-data-view="official"] .ibama-html-pin,
+body[data-data-view="official"] .ibama-html-pin.ibama-html-cluster,
+body[data-data-view="official"] .ibama-html-pin.ibama-html-mixed {
+  width: 15px !important;
+  height: 15px !important;
+  min-width: 15px !important;
+  min-height: 15px !important;
+  box-sizing: border-box !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  text-shadow: none !important;
+  transform: none;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer;
+}
+body[data-data-view="official"] .ibama-html-pin::after {
+  content: "";
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #242729;
+  border: 0;
+  box-shadow: none;
+  pointer-events: none;
+}
+body[data-data-view="official"] .ibama-html-pin.ibama-html-cluster::after {
+  background: #747879;
+}
+body[data-data-view="official"] .ibama-html-pin:hover::after,
+body[data-data-view="official"] .ibama-html-pin:focus-visible::after {
+  background: #050505;
+}
+body[data-data-view="official"] .ibama-html-pin:hover,
+body[data-data-view="official"] .ibama-html-pin:focus-visible {
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transform: none !important;
+}
+body[data-data-view="official"] .ibama-html-pin:focus-visible::after {
+  outline: 1px dotted #242729;
+  outline-offset: 3px;
+}

@@ -86,6 +86,28 @@ try {
   console.log('IBAMA 2025 VISIBLE POINTS:',JSON.stringify(ibamaHealth));
   assert(ibamaHealth.features > 0, 'IBAMA official source has no valid 2025 records');
   assert(ibamaHealth.domNodes > 0, 'IBAMA markers are not visible on the map');
+  const markerStyleAudit = await page.evaluate(() => {
+    const pins = [...document.querySelectorAll('.ibama-html-pin')];
+    const sample = [pins[0], pins.find(el=>el.classList.contains('ibama-html-cluster'))].filter(Boolean);
+    return sample.map(el => {
+      const style = getComputedStyle(el);
+      const dot = getComputedStyle(el,'::after');
+      return {outerWidth:parseFloat(style.width),outerHeight:parseFloat(style.height),
+        border:style.borderTopWidth,boxShadow:style.boxShadow,
+        dotWidth:parseFloat(dot.width),dotHeight:parseFloat(dot.height),
+        dotColor:dot.backgroundColor,dotBorder:dot.borderTopWidth,
+        content:el.textContent.trim(),cluster:el.classList.contains('ibama-html-cluster')};
+    });
+  });
+  console.log('IBAMA MINIMAL DOTS:',JSON.stringify(markerStyleAudit));
+  assert(markerStyleAudit.length>0,'Cannot inspect official IBAMA marker design');
+  for (const dot of markerStyleAudit) {
+    assert(dot.dotWidth<=6 && dot.dotHeight<=6,'Official dot must be visually small');
+    assert(dot.border==='0px' && dot.dotBorder==='0px','IBAMA dots must have no border');
+    assert(dot.content==='','Official IBAMA map pins cannot display count badges');
+    assert(dot.boxShadow==='none','Official IBAMA pins cannot have halos/shadows');
+  }
+
   assert(ibamaHealth.enabled.length > 0, 'IBAMA thematic categories are all disabled');
   // Every DOM marker corresponds to one exact numeric coordinate pair.
   // No pixel-binning, zoom clusters or skipped groups.

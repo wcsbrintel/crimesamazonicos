@@ -106,7 +106,7 @@ try {
     assert(dot.border==='0px' && dot.dotBorder==='0px','IBAMA points must have no border');
     if (dot.cluster) {
       assert(dot.outerWidth>=20 && dot.outerWidth<=26,'Exact-coordinate group marker must be modest in size');
-      assert(/^[0-9]+$/.test(dot.content),'Exact-coordinate group marker must show its record count');
+      assert(dot.content==='','Exact-coordinate shared-site marker must not display record counts');
     } else {
       assert(dot.dotWidth<=6 && dot.dotHeight<=6,'Individual official dots must stay at 5px');
       assert(dot.content==='','Individual official map dots cannot display count badges');
@@ -114,6 +114,26 @@ try {
     }
   }
 
+  // Hotspots are a separate count-weighted MapLibre heatmap; points stay unchanged.
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.kde?.drawnRecords>0,null,{timeout:20000});
+  const initialKde=await page.evaluate(()=>window.__amazonMapHealth?.().ibama?.kde);
+  console.log('IBAMA HOTSPOTS INITIAL',JSON.stringify(initialKde));
+  assert(initialKde.visible&&initialKde.layer,'Hotspots layer must be visible in official mode');
+  assert(initialKde.drawnRecords===ibamaHealth.features,
+         'KDE must weight every filtered official record, not one per coordinate');
+  assert(initialKde.referenceCount===100,'Hotspots must use stable absolute count scale');
+  assert(await page.locator('#official-kde-label').textContent()==='Hotspots','KDE button label must be Hotspots');
+  const sizeBefore=await page.locator('.ibama-html-pin:not(.ibama-html-cluster)').first().evaluate(el=>{
+    const dot=getComputedStyle(el,'::after');return [dot.width,dot.height];
+  });
+  await page.locator('#official-kde-toggle').uncheck();
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.kde?.visible===false);
+  await page.locator('#official-kde-toggle').check();
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.kde?.visible===true);
+  const sizeAfter=await page.locator('.ibama-html-pin:not(.ibama-html-cluster)').first().evaluate(el=>{
+    const dot=getComputedStyle(el,'::after');return [dot.width,dot.height];
+  });
+  assert(JSON.stringify(sizeBefore)===JSON.stringify(sizeAfter),'Hotspots toggle changed point size');
   assert(ibamaHealth.enabled.length > 0, 'IBAMA thematic categories are all disabled');
   // Every DOM marker corresponds to one exact numeric coordinate pair.
   // No pixel-binning, zoom clusters or skipped groups.
@@ -196,6 +216,11 @@ try {
   await page.waitForFunction(()=>Number((document.querySelector('#official-total')?.textContent||'').replace(/[^0-9]/g,''))>0);
   const filteredMining=await page.evaluate(()=>window.__amazonMapHealth?.().ibama?.explorer);
   console.log('OFFICIAL FILTERED MINING',JSON.stringify(filteredMining));
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.kde?.drawnRecords===
+    window.__amazonMapHealth?.().ibama?.explorer?.visible,null,{timeout:20000});
+  const miningKde=await page.evaluate(()=>window.__amazonMapHealth?.().ibama?.kde);
+  assert(miningKde.drawnRecords===filteredMining.visible,'Hotspots did not update to filtered mining record count');
+  assert(miningKde.referenceCount===initialKde.referenceCount,'Hotspots rescaled their density threshold');
   assert(filteredMining.visible>0&&filteredMining.visible<ibamaHealth.features,'Mining filter failed');
   await page.locator('#official-state').selectOption('PA');
   await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.state==='PA');

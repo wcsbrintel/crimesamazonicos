@@ -27,7 +27,7 @@ function render(){
  const panel=document.getElementById('ibama-layer-section'); if(!panel)return;
  const tr=copy[lang()];
  const counts=Object.fromEntries(TYPES.map(([id])=>[id,0]));
- for(const f of features){const c=f.properties?.category;if(c in counts)counts[c]++;}
+ for(const f of features){for(const c of (f.properties?.categories||[f.properties?.category]))if(c in counts)counts[c]++;}
  panel.innerHTML='<div class="layer-section-title"><span>'+html(tr.heading)+'</span><small class="ibama-count">'+features.length.toLocaleString(lang())+' '+html(tr.count)+'</small></div>'+
  '<p class="ibama-note">'+html(tr.note)+'</p>'+
  '<div class="ibama-actions"><button type="button" id="ibama-all">'+html(tr.on)+'</button><button type="button" id="ibama-none">'+html(tr.off)+'</button></div>'+
@@ -55,20 +55,55 @@ function updateVisibility(){
  if(map.getLayer(id))map.setLayoutProperty(id,'visibility','none');
 
  // Keep individual features only. Never use screen-based or zoom-based clusters.
- if(map.getSource(source))map.getSource(source).setData({type:'FeatureCollection',features:features.filter(f=>enabled.has(f.properties.category))});
+ if(map.getSource(source))map.getSource(source).setData({type:'FeatureCollection',features:features.filter(f=>(f.properties.categories||[f.properties.category]).some(c=>enabled.has(c)))});
  domOverlay?.schedule();
 }
-function popup(props,location){
+function recordDetails(props) {
  const tr=copy[lang()];
- const cat=TYPES.find(t=>t[0]===props.category);
- const label=cat?.[2]?.[lang()]||props.category;
- const rows=[[tr.date,props.date],['UF',props.uf],['Município / Municipality',props.municipality],['Nº',props.notice],['Tipo / Type',props.type],['Classificação / Classification',label]];
- const body=rows.filter(x=>x[1]).map(([a,b])=>'<div><strong>'+html(a)+':</strong> '+html(b)+'</div>').join('');
- new lib.Popup({maxWidth:'340px'}).setLngLat(location).setHTML('<div class="ibama-popup"><strong>IBAMA · 2025</strong><p>'+html(tr.status)+'</p>'+body+'<p><a href="'+html(props.source_url||'https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao')+'" target="_blank" rel="noopener noreferrer">'+html(tr.source)+'</a></p></div>').addTo(map);
+ const extra=props.official||{};
+ const texts={
+  pt:{description:'Descrição oficial da infração',legal:'Enquadramento administrativo',nonAdmin:'Outro enquadramento legal',additional:'Enquadramento complementar',area:'Área afetada',biome:'Biomas atingidos',protected:'Unidade de conservação',operation:'Operação',process:'Processo',fine:'Valor do auto (R$)',factDate:'Data do fato declarado',species:'Espécimes identificados no auto (não necessariamente apreendidos)',seizedSpecies:'Espécimes apreendidos — termo vinculado',seizedGoods:'Bens apreendidos — termo vinculado',terms:'Termos de apreensão vinculados',notReported:'Não informado',multiple:'Categorias temáticas',notice:'Auto de infração',units:'Unidade'},
+  en:{description:'Official infraction description',legal:'Administrative legal basis',nonAdmin:'Other legal basis',additional:'Complementary legal basis',area:'Affected area',biome:'Affected biomes',protected:'Protected area',operation:'Operation',process:'Case file',fine:'Notice amount (BRL)',factDate:'Reported event date',species:'Species recorded in notice (not necessarily seized)',seizedSpecies:'Seized specimens — officially linked term',seizedGoods:'Seized goods — officially linked term',terms:'Linked seizure terms',notReported:'Not reported',multiple:'Thematic categories',notice:'Inspection notice',units:'Unit'},
+  es:{description:'Descripción oficial de la infracción',legal:'Fundamento administrativo',nonAdmin:'Otro fundamento legal',additional:'Fundamento complementario',area:'Área afectada',biome:'Biomas afectados',protected:'Área protegida',operation:'Operación',process:'Expediente',fine:'Importe del acta (BRL)',factDate:'Fecha del hecho declarado',species:'Especies identificadas en el acta (no necesariamente incautadas)',seizedSpecies:'Especímenes incautados — acta vinculada',seizedGoods:'Bienes incautados — acta vinculada',terms:'Actas de incautación vinculadas',notReported:'No informado',multiple:'Categorías temáticas',notice:'Acta de infracción',units:'Unidad'}
+ };
+ const l=texts[lang()];
+ const formatNum=n=>(n===null||n===undefined)?'':Number(n).toLocaleString(lang()==='pt'?'pt-BR':lang()==='es'?'es-ES':'en-US',{maximumFractionDigits:4});
+ const fields=[
+  [tr.date,props.date],['UF',props.uf],
+  ['Município / Municipality',props.municipality],[l.notice,props.notice],
+  ['Tipo / Type',props.type],[l.description,extra.infraction_description],
+  [l.legal,extra.administrative_legal_basis],[l.nonAdmin,extra.non_administrative_legal_basis],
+  [l.additional,extra.additional_legal_basis],[l.biome,extra.biomes],
+  [l.protected,extra.protected_area],[l.operation,extra.operation],
+  [l.process,extra.process],[l.factDate,extra.fact_date],
+  [l.area,extra.affected_area===null||extra.affected_area===undefined?'':formatNum(extra.affected_area)+' '+(extra.affected_area_unit||'')],
+  [l.fine,extra.fine_brl===null||extra.fine_brl===undefined?'':formatNum(extra.fine_brl)],
+  [l.multiple,(props.categories||[props.category]).map(c=>TYPES.find(t=>t[0]===c)?.[2]?.[lang()]||c).join(', ')]
+ ];
+ const body=fields.filter(([,v])=>v!==null&&v!==undefined&&String(v).trim()).map(([k,v])=>'<div class="ibama-detail-row"><strong>'+html(k)+':</strong> <span>'+html(v)+'</span></div>').join('');
+ const biological=(title,items)=>items?.length?'<section class="ibama-record-section"><h4>'+html(title)+' ('+items.length+')</h4><ul>'+
+  items.map(item=>'<li><strong class="ibama-taxon">'+html(item.scientific_name||item.common_name||'—')+'</strong>'+
+  (item.common_name&&item.scientific_name?' — '+html(item.common_name):'')+
+  (item.quantity!==null&&item.quantity!==undefined?' · '+html(formatNum(item.quantity))+' '+html(item.unit||''):'')+
+  (item.group?' · '+html(item.group):'')+
+  (item.term_id?' · TAD '+html(item.term_id):'')+'</li>').join('')+'</ul></section>':'';
+ const goods=props.seized_goods?.length?'<section class="ibama-record-section"><h4>'+html(l.seizedGoods)+' ('+props.seized_goods.length+')</h4><ul>'+
+  props.seized_goods.map(item=>'<li><strong>'+html(item.name||item.kind||'—')+'</strong>'+
+  (item.quantity!==null&&item.quantity!==undefined?' · '+html(formatNum(item.quantity))+' '+html(item.unit||''):'')+
+  (item.term_id?' · TAD '+html(item.term_id):'')+'</li>').join('')+'</ul></section>':'';
+ const terms=props.seizure_terms?.length?'<section class="ibama-record-section"><h4>'+html(l.terms)+'</h4><ul>'+
+  props.seizure_terms.map(item=>'<li>'+html([item.number,item.series,item.date].filter(Boolean).join(' · '))+'</li>').join('')+'</ul></section>':'';
+ return '<strong>IBAMA · 2025</strong><p>'+html(tr.status)+'</p>'+body+
+  biological(l.species,props.species_referenced)+biological(l.seizedSpecies,props.seized_specimens)+goods+terms+
+  '<p><a href="https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao" target="_blank" rel="noopener noreferrer">'+html(tr.source)+'</a></p>';
+}
+function popup(props,location){
+ new lib.Popup({maxWidth:'450px'}).setLngLat(location).setHTML('<div class="ibama-popup ibama-detailed">'+recordDetails(props)+'</div>').addTo(map);
 }
 function groupPopup(group, location){
  const tr=copy[lang()];
- const label=TYPES.find(t=>t[0]===group.category)?.[2]?.[lang()]||group.category;
+ const categories=[...new Set(group.members.flatMap(f=>f.properties?.categories||[f.properties?.category]))];
+ const label=categories.map(cat=>TYPES.find(t=>t[0]===cat)?.[2]?.[lang()]||cat).join(' · ');
  const fmt=new Intl.NumberFormat(lang()==='pt'?'pt-BR':lang()==='es'?'es-ES':'en-US');
 
  const records=group.members.slice().sort((a,b)=>String(b.properties?.date||'').localeCompare(String(a.properties?.date||''))||String(a.properties?.id||'').localeCompare(String(b.properties?.id||'')));
@@ -98,9 +133,8 @@ function groupPopup(group, location){
     if(!item)return;
     const p=item.properties;
     const backLabel=({pt:'← Voltar à lista',en:'← Back to list',es:'← Volver a la lista'})[lang()];
-    const details=[[tr.date,p.date],['UF',p.uf],['Município / Municipality',p.municipality],['Nº',p.notice],['Tipo / Type',p.type],['Classificação / Classification',TYPES.find(t=>t[0]===p.category)?.[2]?.[lang()]||p.category]];
-    const body=details.filter(([k,v])=>v).map(([k,v])=>'<div><strong>'+html(k)+':</strong> '+html(v)+'</div>').join('');
-    popupView.setHTML('<div class="ibama-popup"><button type="button" class="ibama-choice-back">'+html(backLabel)+'</button><strong>IBAMA · 2025</strong><p>'+html(tr.status)+'</p>'+body+'<p><a href="'+html(p.source_url||'https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao')+'" target="_blank" rel="noopener noreferrer">'+html(tr.source)+'</a></p></div>');
+
+    popupView.setHTML('<div class="ibama-popup ibama-detailed"><button type="button" class="ibama-choice-back">'+html(backLabel)+'</button>'+recordDetails(p)+'</div>');
     popupView.getElement().querySelector('.ibama-choice-back').addEventListener('click',()=>renderPage(current,search));
   }));
   root.querySelector('[data-page="previous"]')?.addEventListener('click',()=>renderPage(current-1,search));

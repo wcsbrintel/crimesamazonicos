@@ -1,5 +1,5 @@
 // Independent 2025 IBAMA administrative layer. Does not modify canonical OSINT events.
-import { createIbamaDomOverlay } from './ibama-2025-dom.js?v=20261123-2';
+import { createIbamaDomOverlay } from './ibama-2025-dom.js?v=20261123-exact1';
 const TYPES = [
   ['deforestation','#da7048',{pt:'Desmatamento',en:'Deforestation',es:'Deforestación'}],
   ['logging','#aa814b',{pt:'Madeira e exploração florestal',en:'Logging and forest products',es:'Madera y explotación forestal'}],
@@ -39,11 +39,10 @@ function render(){
 }
 function install(){
  if(!map?.isStyleLoaded?.()) return;
- if(!map.getSource(source))map.addSource(source,{type:'geojson',data:fc(),cluster:true,clusterRadius:35,clusterMaxZoom:10});
+ if(!map.getSource(source))map.addSource(source,{type:'geojson',data:fc(),cluster:false});
  else map.getSource(source).setData(fc());
- if(!map.getLayer(id+'-clusters'))map.addLayer({id:id+'-clusters',type:'circle',source,filter:['has','point_count'],paint:{'circle-color':'#669d83','circle-radius':['step',['get','point_count'],13,100,18,1000,24],'circle-stroke-color':'#ffffff','circle-stroke-width':1.1,'circle-opacity':0.86}});
- if(!map.getLayer(id+'-cluster-count'))map.addLayer({id:id+'-cluster-count',type:'symbol',source,filter:['has','point_count'],layout:{'text-field':['get','point_count_abbreviated'],'text-size':11},paint:{'text-color':'#ffffff'}});
- if(!map.getLayer(id))map.addLayer({id,type:'circle',source,filter:['!', ['has','point_count']],paint:{
+
+ if(!map.getLayer(id))map.addLayer({id,type:'circle',source,paint:{
  'circle-color':['match',['get','category'],...TYPES.flatMap(t=>[t[0],t[1]]),'#8e9b9c'],
  'circle-radius':['interpolate',['linear'],['zoom'],2,3.5,7,5.1,12,7],
  'circle-stroke-width':1.3,'circle-stroke-color':'#ffffff','circle-opacity':0.83}});
@@ -52,10 +51,10 @@ function install(){
 function updateVisibility(){
  if(!map?.isStyleLoaded?.())return;
  const any=enabled.size>0&&features.length>0;
- for(const layer of [id,id+'-clusters',id+'-cluster-count'])if(map.getLayer(layer))map.setLayoutProperty(layer,'visibility',any?'visible':'none');
- if(map.getLayer(id)) map.setFilter(id,['all',['!', ['has','point_count']],['in',['get','category'],['literal',[...enabled]]]]);
- // Clusters are computed from all 2025 features; when a subset is selected, rebuild the
- // GeoJSON source so cluster membership respects category toggles.
+ // DOM points handle the interaction; do not draw a duplicate MapLibre circle on top.
+ if(map.getLayer(id))map.setLayoutProperty(id,'visibility','none');
+
+ // Keep individual features only. Never use screen-based or zoom-based clusters.
  if(map.getSource(source))map.getSource(source).setData({type:'FeatureCollection',features:features.filter(f=>enabled.has(f.properties.category))});
  domOverlay?.schedule();
 }
@@ -71,8 +70,43 @@ function groupPopup(group, location){
  const tr=copy[lang()];
  const label=TYPES.find(t=>t[0]===group.category)?.[2]?.[lang()]||group.category;
  const fmt=new Intl.NumberFormat(lang()==='pt'?'pt-BR':lang()==='es'?'es-ES':'en-US');
- const rows=group.samples.map(f=>f.properties).slice(0,8).map(p=>'<li>'+html([p.date,p.municipality,p.uf,p.notice].filter(Boolean).join(' · '))+'</li>').join('');
- new lib.Popup({maxWidth:'350px'}).setLngLat(location).setHTML('<div class="ibama-popup"><strong>IBAMA · 2025</strong><p>'+html(label)+' · '+fmt.format(group.count)+' '+html(tr.count)+'</p><ul>'+rows+'</ul><p>'+html(tr.status)+'</p></div>').addTo(map);
+
+ const records=group.members.slice().sort((a,b)=>String(b.properties?.date||'').localeCompare(String(a.properties?.date||''))||String(a.properties?.id||'').localeCompare(String(b.properties?.id||'')));
+ const popupView=new lib.Popup({maxWidth:'430px'}).setLngLat(location).addTo(map);
+ const renderPage=(page=0,search='')=>{
+  const filter=search.trim().toLocaleLowerCase();
+  const matches=records.filter(f=>{
+    const p=f.properties||{};
+    return !filter||[p.notice,p.date,p.municipality,p.uf,p.type,p.category,p.id].some(v=>String(v||'').toLocaleLowerCase().includes(filter));
+  });
+  const pageSize=20,totalPages=Math.max(1,Math.ceil(matches.length/pageSize));
+  const current=Math.max(0,Math.min(page,totalPages-1));
+  const buttons=matches.slice(current*pageSize,(current+1)*pageSize).map((f,i)=>{
+    const p=f.properties||{};
+    return '<button type="button" class="ibama-case-choice" data-choice="'+(current*pageSize+i)+'"><strong>'+html(p.notice||p.id||'IBAMA')+'</strong><small>'+html([p.date,p.municipality,p.uf,p.type].filter(Boolean).join(' · '))+'</small></button>';
+  }).join('');
+  popupView.setHTML('<div class="ibama-popup ibama-choices"><strong>IBAMA · 2025</strong><p>'+html(tr.status)+' · '+fmt.format(matches.length)+' / '+fmt.format(records.length)+' '+html(tr.count)+'</p><p class="ibama-exact-note">'+html(({pt:'Registros nas mesmas coordenadas geográficas (sem agrupamento por proximidade). Selecione um auto para visualizar.',en:'Records at identical geographic coordinates (no proximity clustering). Select a notice to view.',es:'Registros con coordenadas geográficas idénticas (sin agrupación por proximidad). Seleccione un acta para visualizar.'})[lang()])+'</p><input class="ibama-choice-search" type="search" placeholder="'+html(({pt:'Buscar por auto, data, local ou tipo',en:'Search by notice, date, place or type',es:'Buscar por acta, fecha, lugar o tipo'})[lang()])+'" value="'+html(search)+'" aria-label="Search IBAMA notices"><div class="ibama-choice-list">'+(buttons||'<p>—</p>')+'</div><div class="ibama-choice-pager"><button type="button" data-page="previous" '+(current===0?'disabled':'')+'>←</button><span>'+(current+1)+' / '+totalPages+'</span><button type="button" data-page="next" '+(current>=totalPages-1?'disabled':'')+'>→</button></div></div>');
+  const root=popupView.getElement();
+  root.querySelector('.ibama-choice-search')?.addEventListener('input',e=>{
+    const value=e.target.value;
+    renderPage(0,value);
+    const input=popupView.getElement()?.querySelector('.ibama-choice-search');
+    input?.focus();input?.setSelectionRange(value.length,value.length);
+  });
+  root.querySelectorAll('.ibama-case-choice').forEach(button=>button.addEventListener('click',()=>{
+    const item=matches[Number(button.dataset.choice)];
+    if(!item)return;
+    const p=item.properties;
+    const backLabel=({pt:'← Voltar à lista',en:'← Back to list',es:'← Volver a la lista'})[lang()];
+    const details=[[tr.date,p.date],['UF',p.uf],['Município / Municipality',p.municipality],['Nº',p.notice],['Tipo / Type',p.type],['Classificação / Classification',TYPES.find(t=>t[0]===p.category)?.[2]?.[lang()]||p.category]];
+    const body=details.filter(([k,v])=>v).map(([k,v])=>'<div><strong>'+html(k)+':</strong> '+html(v)+'</div>').join('');
+    popupView.setHTML('<div class="ibama-popup"><button type="button" class="ibama-choice-back">'+html(backLabel)+'</button><strong>IBAMA · 2025</strong><p>'+html(tr.status)+'</p>'+body+'<p><a href="'+html(p.source_url||'https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao')+'" target="_blank" rel="noopener noreferrer">'+html(tr.source)+'</a></p></div>');
+    popupView.getElement().querySelector('.ibama-choice-back').addEventListener('click',()=>renderPage(current,search));
+  }));
+  root.querySelector('[data-page="previous"]')?.addEventListener('click',()=>renderPage(current-1,search));
+  root.querySelector('[data-page="next"]')?.addEventListener('click',()=>renderPage(current+1,search));
+ };
+ renderPage();
 }
 export function installIbama2025(theMap,theLibrary,languageGetter){
  map=theMap;lib=theLibrary;getLanguage=languageGetter;
@@ -85,14 +119,10 @@ export function installIbama2025(theMap,theLibrary,languageGetter){
  map.on('load',install);
  map.on('click',e=>{
   if(!map.isStyleLoaded()||!enabled.size)return;
-  const layers=[id,id+'-clusters'].filter(name=>map.getLayer(name));if(!layers.length)return;
-  const f=map.queryRenderedFeatures(e.point,{layers})[0];if(!f)return;
-  if(f.properties?.cluster){map.getSource(source)?.getClusterExpansionZoom(f.properties.cluster_id,(err,z)=>{if(!err)map.easeTo({center:f.geometry.coordinates,zoom:z});});return;}
-  popup(f.properties,e.lngLat);
+  // IBAMA interactions are intentionally handled by exact-coordinate DOM markers.
  });
  map.on('mousemove',e=>{
-  const layers=[id,id+'-clusters'].filter(name=>map.getLayer(name));
-  if(layers.length&&enabled.size&&map.queryRenderedFeatures(e.point,{layers}).length)map.getCanvas().style.cursor='pointer';
+  // Keep cursor decisions for canonical events and their own interactive layers.
  });
  fetch('./data/ibama-2025.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(data=>{
    if(data?.year!==2025||data?.type!=='FeatureCollection'||!Array.isArray(data.features)||data.status==='pending-build')throw Error('IBAMA 2025 snapshot not generated');

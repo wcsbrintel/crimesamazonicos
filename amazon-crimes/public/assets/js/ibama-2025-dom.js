@@ -35,11 +35,6 @@ export function createIbamaDomOverlay({
   map, maplibregl, getFeatures, getEnabledCategories, getLanguage,
   onSingle, onGroup
 }) {
-  const colors = {
-    deforestation:'#da7048', logging:'#aa814b', flora_other:'#7dba72',
-    wildlife:'#56a989', fishing:'#4cace0', mining:'#d7b14b',
-    pollution:'#9584d0', fire:'#df824d', other:'#8e9b9c'
-  };
   const markers = new Map();
   let timer = null;
   let installed = false;
@@ -85,9 +80,7 @@ export function createIbamaDomOverlay({
       visibleSites += 1;
       if (count > 1) coincidentSites += 1;
       wanted.add(group.key);
-      const multipleTypes = group.categories.size > 1;
       const category = group.members[0]?.properties?.category || 'other';
-      const color = multipleTypes ? '#b18ad0' : (colors[category] || colors.other);
       let entry = markers.get(group.key);
       if (!entry) {
         const button = document.createElement('button');
@@ -110,9 +103,9 @@ export function createIbamaDomOverlay({
       }
       entry.group = group;
       entry.button.classList.toggle('ibama-html-cluster', count > 1);
-      entry.button.classList.toggle('ibama-html-mixed', multipleTypes);
-      entry.button.style.setProperty('--ibama-color', color);
-      entry.button.textContent = count > 1 ? String(count) : '';
+      // Every site uses the same unobtrusive dot: no number, colored pin,
+      // ring, flag or category icon. Exact overlaps still open a choice list.
+      entry.button.textContent = '';
       const description = count > 1
         ? count.toLocaleString(locale) + ' IBAMA 2025 records at exactly the same coordinates'
         : 'IBAMA 2025 · ' + category;

@@ -53,6 +53,17 @@ def get(row,*cols):
  return next((str(row[x]).strip() for x in cols if x in row and row[x] is not None and str(row[x]).strip()),"")
 def safe(s,n=140):
  return re.sub(r"[\x00-\x1f]+"," ",str(s or "")).strip()[:n]
+def public_narrative(value, limit=12000):
+ # The official source is public, but embedded identifiers must not be
+ # indiscriminately redistributed in searchable map popups.
+ text = re.sub(r"[\\x00-\\x1f]+", " ", str(value or "")).strip()
+ text = re.sub(r"(?i)\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b", "[e-mail omitido]", text)
+ text = re.sub(r"(?i)\\b(?:CPF|CNPJ|RG)\\s*(?:N[º°.]?\\s*)?[:#=-]?\\s*[0-9.\\-/]{7,22}", "[identificador pessoal omitido]", text)
+ text = re.sub(r"(?i)\\b(?:PLACAS?)(?:\\s+(?:DO|DA|DE|N[º°.]?))?\\s*[:#=-]?\\s*[A-Z]{3}[-\\s]?[0-9][A-Z0-9][0-9]{2}\\b", "placa [omitida]", text)
+ text = re.sub(r"(?i)\\b(?:RENAVAM|CHASSIS?|CHASSI)\\s*(?:N[º°.]?\\s*)?[:#=-]?\\s*[A-Z0-9-]{7,24}\\b", "[identificador de veículo omitido]", text)
+ text = re.sub(r"(?i)\\b(?:TELEFONE|CELULAR|WHATSAPP)\\s*[:#=-]?\\s*\\+?[0-9() .-]{9,25}", "[contato omitido]", text)
+ return re.sub(r"\\s+", " ", text).strip()[:limit]
+
 def number(s):
  if not s:return None
  try:
@@ -158,6 +169,7 @@ def main():
      "infraction_code":safe(get(row,"COD_INFRACAO"),25),
      "administrative_class":safe(get(row,"TIPO_INFRACAO"),90),
      "infraction_description":safe(get(row,"DES_INFRACAO"),240),
+     "narrative_detail":public_narrative(get(row,"DES_AUTO_INFRACAO"),12000),
      "administrative_legal_basis":safe(get(row,"DS_ENQUADRAMENTO_ADMINISTRATIVO"),500),
      "non_administrative_legal_basis":safe(get(row,"DS_ENQUADRAMENTO_NAO_ADMINISTRATIVO"),400),
      "additional_legal_basis":safe(get(row,"DS_ENQUADRAMENTO_COMPLEMENTAR"),300),
@@ -215,7 +227,10 @@ def main():
    termitem={"id":safe(term,45),"number":safe(get(row,"CD_TAD"),50),
              "series":safe(get(row,"CD_SERIE_TAD"),15),
              "date":safe(get(row,"DT_APREENSAO"),30),
+             "seizure_detail":public_narrative(get(row,"DS_TAD"),12000),
              "source":SEIZURES}
+   if termitem["seizure_detail"]:
+    counters["terms_with_ds_tad"]+=1
    p=f["properties"]; arr=p.setdefault("seizure_terms",[])
    if len(arr)<MAX_ITEMS_PER_AUTO:arr.append(termitem)
    terms_by_seq[term].append(p)
@@ -281,10 +296,12 @@ def main():
   p.setdefault("categories",[p.get("category","other")])
   for x in ("species_referenced","seized_specimens","seized_goods","seizure_terms"):
    p.setdefault(x,[])
+  if p.get("official",{}).get("narrative_detail"):counters["autos_with_des_auto_infracao"]+=1
+  if any(t.get("seizure_detail") for t in p.get("seizure_terms",[])):counters["autos_with_ds_tad"]+=1
   for cat in p["categories"]:counters["category_"+cat]+=1
   for extra in ("species_referenced","seized_specimens","seized_goods","seizure_terms"):
    if p[extra]:counters["autos_with_"+extra]+=1
- data["classification_version"]="ibama-2025-official-v2"
+ data["classification_version"]="ibama-2025-official-v3-narratives"
  data["classification_methodology"]="Official TIPO_INFRACAO + recorded infraction narrative/legal descriptions; transparent overlapping categories, no assumption of criminal conviction."
  data["enrichment_sources"]=URLS
  data["enrichment_status"]=loaded

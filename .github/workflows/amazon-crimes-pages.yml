@@ -57,6 +57,9 @@ jobs:
       - name: Build IBAMA 2025 official administrative layers
         run: python3 scripts/build-ibama-2025.py --output public/data/ibama-2025.json
 
+      - name: Enrich IBAMA 2025 thematic records and linked seizures
+        run: python3 scripts/enrich-ibama-2025.py
+
       - name: Validate JavaScript
         run: |
           node --check public/assets/js/ibama-2025-dom.js

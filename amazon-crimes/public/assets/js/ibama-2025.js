@@ -24,6 +24,7 @@ let domOverlay = null;
 let officialExplorer = null;
 let officialMode = false;
 const emptyEnabled = new Set();
+let activeOfficialPopup = null;
 const lang=()=>copy[getLanguage?.()] ? getLanguage() : 'en';
 const html=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fc=()=>({type:'FeatureCollection',features});
@@ -84,13 +85,62 @@ function recordDetails(props) {
  const terms=props.seizure_terms?.length?'<section class="ibama-record-section"><h4>'+html(l.terms)+'</h4><ul>'+
   props.seizure_terms.map(item=>'<li><strong>'+html([item.number,item.series,item.date].filter(Boolean).join(' · ')||item.id)+'</strong>'+
    (item.seizure_detail?'<div class="ibama-tad-detail"><strong>'+html(({pt:'Detalhamento da apreensão',en:'Seizure details',es:'Detalle de la incautación'})[lang()])+'</strong><p>'+html(item.seizure_detail)+'</p><small>IBAMA · DS_TAD</small></div>':'')+'</li>').join('')+'</ul></section>':'';
- return '<strong>IBAMA · 2025</strong><p>'+html(tr.status)+'</p>'+body+narrative+
+ return '<strong>'+html(({pt:'Dados Oficiais',en:'Official Data',es:'Datos oficiales'})[lang()])+'</strong><p>'+html(tr.status)+' · IBAMA · 2025</p>'+body+narrative+
   biological(l.species,props.species_referenced)+biological(l.seizedSpecies,props.seized_specimens)+goods+terms+
   '<p><a href="https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao" target="_blank" rel="noopener noreferrer">'+html(tr.source)+'</a></p>';
 }
-function popup(props,location){
- new lib.Popup({maxWidth:'450px'}).setLngLat(location).setHTML('<div class="ibama-popup ibama-detailed">'+recordDetails(props)+'</div>').addTo(map);
+function closeOfficialPopup(){
+ if(activeOfficialPopup){
+   const previous=activeOfficialPopup;
+   activeOfficialPopup=null;
+   previous.remove();
+ }
 }
+function fitOfficialPopup(popupView) {
+ // Use the actual map viewport rather than the browser viewport; the
+ // map shares horizontal space with the filters sidebar.
+ if(!popupView?.getElement?.()) return;
+ const mapEl=map.getContainer();
+ const content=popupView.getElement()?.querySelector('.maplibregl-popup-content');
+ const area=mapEl.getBoundingClientRect();
+ if(!content || !area.width || !area.height) return;
+ const availableHeight=Math.max(155,area.height-30);
+ content.style.maxHeight=availableHeight+'px';
+ content.style.overflowY='auto';
+ // MapLibre may choose a different anchor after setHTML. Recheck only
+ // after layout is complete and shift the camera if the card is clipped.
+ const reposition=()=>{
+   if(activeOfficialPopup!==popupView || !popupView.getElement()?.isConnected)return;
+   const popupRect=popupView.getElement().getBoundingClientRect();
+   const region=mapEl.getBoundingClientRect();
+   const margin=14;
+   let shiftX=0,shiftY=0;
+   if(popupRect.left<region.left+margin)shiftX=region.left+margin-popupRect.left;
+   else if(popupRect.right>region.right-margin)shiftX=region.right-margin-popupRect.right;
+   if(popupRect.top<region.top+margin)shiftY=region.top+margin-popupRect.top;
+   else if(popupRect.bottom>region.bottom-margin)shiftY=region.bottom-margin-popupRect.bottom;
+   if(Math.abs(shiftX)>1||Math.abs(shiftY)>1){
+     map.panBy([shiftX,shiftY],{duration:250});
+   }
+ };
+ requestAnimationFrame(()=>requestAnimationFrame(reposition));
+}
+function createOfficialPopup(location,maxWidth='450px'){
+ closeOfficialPopup();
+ const pop=new lib.Popup({
+   closeButton:true,closeOnClick:false,anchor:'bottom',
+   maxWidth,offset:12,className:'ibama-official-popup'
+ }).setLngLat(location).addTo(map);
+ activeOfficialPopup=pop;
+ pop.on('close',()=>{if(activeOfficialPopup===pop)activeOfficialPopup=null;});
+ return pop;
+}
+function popup(props,location){
+ const view=createOfficialPopup(location);
+ view.setHTML('<div class="ibama-popup ibama-detailed">'+recordDetails(props)+'</div>');
+ fitOfficialPopup(view);
+}
+
 function groupPopup(group, location){
  const tr=copy[lang()];
  const categories=[...new Set(group.members.flatMap(f=>f.properties?.categories||[f.properties?.category]))];
@@ -98,7 +148,7 @@ function groupPopup(group, location){
  const fmt=new Intl.NumberFormat(lang()==='pt'?'pt-BR':lang()==='es'?'es-ES':'en-US');
 
  const records=group.members.slice().sort((a,b)=>String(b.properties?.date||'').localeCompare(String(a.properties?.date||''))||String(a.properties?.id||'').localeCompare(String(b.properties?.id||'')));
- const popupView=new lib.Popup({maxWidth:'430px'}).setLngLat(location).addTo(map);
+ const popupView=createOfficialPopup(location,'430px');
  const renderPage=(page=0,search='')=>{
   const filter=search.trim().toLocaleLowerCase();
   const matches=records.filter(f=>{
@@ -111,7 +161,8 @@ function groupPopup(group, location){
     const p=f.properties||{};
     return '<button type="button" class="ibama-case-choice" data-choice="'+(current*pageSize+i)+'"><strong>'+html(p.notice||p.id||'IBAMA')+'</strong><small>'+html([p.date,p.municipality,p.uf,p.type].filter(Boolean).join(' · '))+'</small></button>';
   }).join('');
-  popupView.setHTML('<div class="ibama-popup ibama-choices"><strong>IBAMA · 2025</strong><p>'+html(tr.status)+' · '+fmt.format(matches.length)+' / '+fmt.format(records.length)+' '+html(tr.count)+'</p><p class="ibama-exact-note">'+html(({pt:'Registros nas mesmas coordenadas geográficas (sem agrupamento por proximidade). Selecione um auto para visualizar.',en:'Records at identical geographic coordinates (no proximity clustering). Select a notice to view.',es:'Registros con coordenadas geográficas idénticas (sin agrupación por proximidad). Seleccione un acta para visualizar.'})[lang()])+'</p><input class="ibama-choice-search" type="search" placeholder="'+html(({pt:'Buscar por auto, data, local ou tipo',en:'Search by notice, date, place or type',es:'Buscar por acta, fecha, lugar o tipo'})[lang()])+'" value="'+html(search)+'" aria-label="Search IBAMA notices"><div class="ibama-choice-list">'+(buttons||'<p>—</p>')+'</div><div class="ibama-choice-pager"><button type="button" data-page="previous" '+(current===0?'disabled':'')+'>←</button><span>'+(current+1)+' / '+totalPages+'</span><button type="button" data-page="next" '+(current>=totalPages-1?'disabled':'')+'>→</button></div></div>');
+  popupView.setHTML('<div class="ibama-popup ibama-choices"><strong>'+html(({pt:'Dados Oficiais',en:'Official Data',es:'Datos oficiales'})[lang()])+'</strong><p>'+html(tr.status)+' · IBAMA · 2025 · '+fmt.format(matches.length)+' / '+fmt.format(records.length)+' '+html(tr.count)+'</p><p class="ibama-exact-note">'+html(({pt:'Registros nas mesmas coordenadas geográficas (sem agrupamento por proximidade). Selecione um auto para visualizar.',en:'Records at identical geographic coordinates (no proximity clustering). Select a notice to view.',es:'Registros con coordenadas geográficas idénticas (sin agrupación por proximidad). Seleccione un acta para visualizar.'})[lang()])+'</p><input class="ibama-choice-search" type="search" placeholder="'+html(({pt:'Buscar por auto, data, local ou tipo',en:'Search by notice, date, place or type',es:'Buscar por acta, fecha, lugar o tipo'})[lang()])+'" value="'+html(search)+'" aria-label="Search IBAMA notices"><div class="ibama-choice-list">'+(buttons||'<p>—</p>')+'</div><div class="ibama-choice-pager"><button type="button" data-page="previous" '+(current===0?'disabled':'')+'>←</button><span>'+(current+1)+' / '+totalPages+'</span><button type="button" data-page="next" '+(current>=totalPages-1?'disabled':'')+'>→</button></div></div>');
+  fitOfficialPopup(popupView);
   const root=popupView.getElement();
   root.querySelector('.ibama-choice-search')?.addEventListener('input',e=>{
     const value=e.target.value;
@@ -126,6 +177,7 @@ function groupPopup(group, location){
     const backLabel=({pt:'← Voltar à lista',en:'← Back to list',es:'← Volver a la lista'})[lang()];
 
     popupView.setHTML('<div class="ibama-popup ibama-detailed"><button type="button" class="ibama-choice-back">'+html(backLabel)+'</button>'+recordDetails(p)+'</div>');
+    fitOfficialPopup(popupView);
     popupView.getElement().querySelector('.ibama-choice-back').addEventListener('click',()=>renderPage(current,search));
   }));
   root.querySelector('[data-page="previous"]')?.addEventListener('click',()=>renderPage(current-1,search));
@@ -171,6 +223,7 @@ export function installIbama2025(theMap,theLibrary,languageGetter){
 export function refreshIbamaLanguage(){officialExplorer?.render();}
 export function setIbamaOfficialMode(next) {
  officialMode=Boolean(next);
+ closeOfficialPopup();
  officialExplorer?.setMode(officialMode?'official':'osint');
  updateVisibility();
  domOverlay?.schedule();

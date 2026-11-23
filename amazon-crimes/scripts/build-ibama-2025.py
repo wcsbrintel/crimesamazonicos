@@ -114,7 +114,7 @@ def build(output):
                         descricao=field(row,"DES_INFRACAO","DES_INF")
                         descricao=re.sub(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b","[redacted]",descricao)
                         category=classify(tipo,descricao)
-                        features.append({"type":"Feature","geometry":{"type":"Point","coordinates":[round(lon,5),round(lat,5)]},
+                        features.append({"type":"Feature","geometry":{"type":"Point","coordinates":[lon,lat]},
                           "properties":{"id":"IBAMA-2025-"+re.sub("[^A-Za-z0-9_-]","",key)[:45],
                            "category":category,"date":date,"uf":uf,"municipality":field(row,"MUNICIPIO","NOM_MUNICIPIO")[:100],
                            "notice":(field(row,"NUM_AUTO_INFRACAO","NUM_AUT")+" "+field(row,"SER_AUTO_INFRACAO","SER_AUT")).strip()[:80],

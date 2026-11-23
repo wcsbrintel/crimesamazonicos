@@ -1,4 +1,5 @@
 // Independent 2025 IBAMA administrative layer. Does not modify canonical OSINT events.
+import { createIbamaDomOverlay } from './ibama-2025-dom.js?v=20261123-2';
 const TYPES = [
   ['deforestation','#da7048',{pt:'Desmatamento',en:'Deforestation',es:'Deforestación'}],
   ['logging','#aa814b',{pt:'Madeira e exploração florestal',en:'Logging and forest products',es:'Madera y explotación forestal'}],
@@ -18,6 +19,7 @@ const copy = {
 const id = 'ibama-official-2025', source = 'ibama-2025-source';
 const enabled = new Set();
 let map, lib, getLanguage, features=[], loadState='loading', snapshotStats={};
+let domOverlay = null;
 const lang=()=>copy[getLanguage?.()] ? getLanguage() : 'en';
 const html=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fc=()=>({type:'FeatureCollection',features});
@@ -55,6 +57,7 @@ function updateVisibility(){
  // Clusters are computed from all 2025 features; when a subset is selected, rebuild the
  // GeoJSON source so cluster membership respects category toggles.
  if(map.getSource(source))map.getSource(source).setData({type:'FeatureCollection',features:features.filter(f=>enabled.has(f.properties.category))});
+ domOverlay?.schedule();
 }
 function popup(props,location){
  const tr=copy[lang()];
@@ -64,11 +67,20 @@ function popup(props,location){
  const body=rows.filter(x=>x[1]).map(([a,b])=>'<div><strong>'+html(a)+':</strong> '+html(b)+'</div>').join('');
  new lib.Popup({maxWidth:'340px'}).setLngLat(location).setHTML('<div class="ibama-popup"><strong>IBAMA · 2025</strong><p>'+html(tr.status)+'</p>'+body+'<p><a href="'+html(props.source_url||'https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao')+'" target="_blank" rel="noopener noreferrer">'+html(tr.source)+'</a></p></div>').addTo(map);
 }
+function groupPopup(group, location){
+ const tr=copy[lang()];
+ const label=TYPES.find(t=>t[0]===group.category)?.[2]?.[lang()]||group.category;
+ const fmt=new Intl.NumberFormat(lang()==='pt'?'pt-BR':lang()==='es'?'es-ES':'en-US');
+ const rows=group.samples.map(f=>f.properties).slice(0,8).map(p=>'<li>'+html([p.date,p.municipality,p.uf,p.notice].filter(Boolean).join(' · '))+'</li>').join('');
+ new lib.Popup({maxWidth:'350px'}).setLngLat(location).setHTML('<div class="ibama-popup"><strong>IBAMA · 2025</strong><p>'+html(label)+' · '+fmt.format(group.count)+' '+html(tr.count)+'</p><ul>'+rows+'</ul><p>'+html(tr.status)+'</p></div>').addTo(map);
+}
 export function installIbama2025(theMap,theLibrary,languageGetter){
  map=theMap;lib=theLibrary;getLanguage=languageGetter;
  const panel=document.getElementById('ibama-layer-section');
  if(!panel)return;
  render();
+ domOverlay=createIbamaDomOverlay({map,maplibregl:lib,getFeatures:()=>features,getEnabledCategories:()=>enabled,getLanguage:()=>lang(),onSingle:popup,onGroup:groupPopup});
+ domOverlay.start();
  map.on('style.load',install);
  map.on('load',install);
  map.on('click',e=>{
@@ -86,8 +98,12 @@ export function installIbama2025(theMap,theLibrary,languageGetter){
    if(data?.year!==2025||data?.type!=='FeatureCollection'||!Array.isArray(data.features)||data.status==='pending-build')throw Error('IBAMA 2025 snapshot not generated');
    features=data.features.filter(f=>f?.geometry?.type==='Point'&&Array.isArray(f.geometry.coordinates)&&f?.properties?.date?.startsWith('2025-'));
    snapshotStats=data.stats||{};
-   loadState='ready';render();install();updateVisibility();
+   loadState='ready';
+   // Turn on the 2025 thematic categories as soon as official data are available.
+   if(enabled.size===0)TYPES.forEach(([key])=>enabled.add(key));
+   render();install();updateVisibility();
+   domOverlay?.schedule();
  }).catch(err=>{console.error('IBAMA 2025:',err);loadState='missing';render();});
 }
 export function refreshIbamaLanguage(){render();}
-export function ibama2025Health(){return {status:loadState,features:features.length,enabled:[...enabled],stats:snapshotStats,layer:!!map?.getLayer?.(id)};}
+export function ibama2025Health(){return {status:loadState,features:features.length,enabled:[...enabled],stats:snapshotStats,layer:!!map?.getLayer?.(id),dom:domOverlay?.health()||null};}

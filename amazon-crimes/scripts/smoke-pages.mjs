@@ -99,13 +99,19 @@ try {
         content:el.textContent.trim(),cluster:el.classList.contains('ibama-html-cluster')};
     });
   });
-  console.log('IBAMA MINIMAL DOTS:',JSON.stringify(markerStyleAudit));
+  console.log('IBAMA CATEGORY DOTS:',JSON.stringify(markerStyleAudit));
   assert(markerStyleAudit.length>0,'Cannot inspect official IBAMA marker design');
+  assert(!(await page.locator('.official-results').isVisible()),'Official record list must be hidden from sidebar');
   for (const dot of markerStyleAudit) {
-    assert(dot.dotWidth<=6 && dot.dotHeight<=6,'Official dot must be visually small');
-    assert(dot.border==='0px' && dot.dotBorder==='0px','IBAMA dots must have no border');
-    assert(dot.content==='','Official IBAMA map pins cannot display count badges');
-    assert(dot.boxShadow==='none','Official IBAMA pins cannot have halos/shadows');
+    assert(dot.border==='0px' && dot.dotBorder==='0px','IBAMA points must have no border');
+    if (dot.cluster) {
+      assert(dot.outerWidth>=20 && dot.outerWidth<=26,'Exact-coordinate group marker must be modest in size');
+      assert(/^\\d+$/.test(dot.content),'Exact-coordinate group marker must show its record count');
+    } else {
+      assert(dot.dotWidth<=6 && dot.dotHeight<=6,'Individual official dots must stay at 5px');
+      assert(dot.content==='','Individual official map dots cannot display count badges');
+      assert(dot.boxShadow==='none','Individual official dots cannot have halos');
+    }
   }
 
   assert(ibamaHealth.enabled.length > 0, 'IBAMA thematic categories are all disabled');
@@ -149,10 +155,20 @@ try {
     await first.evaluate(button => button.click()); // Exact-coordinate markers overlap in dense areas: dispatch to the selected marker
     await page.waitForFunction(()=>!!document.querySelector('.ibama-case-choice'),null,{timeout:7000});
     const choices = await page.locator('.ibama-case-choice').count();
+    const groupTitle = await page.locator('.ibama-official-popup strong').first().textContent();
+    assert(/Official Data|Dados Oficiais|Datos oficiales/.test(groupTitle||''),'Group popup must use source-neutral official title');
     assert(choices>1,'Coincident-location pin does not show selectable records');
     await page.locator('.ibama-case-choice').first().click({force:true});
     assert(await page.locator('.ibama-choice-back').count()===1,
       'Individual IBAMA record did not open from the exact-coordinate list');
+    const detailTitle=await page.locator('.ibama-official-popup .ibama-popup>strong').first().textContent();
+    assert(/Official Data|Dados Oficiais|Datos oficiales/.test(detailTitle||''),'Detail popup must use source-neutral title');
+    await page.evaluate(()=>document.querySelector('.ibama-html-pin:not(.ibama-html-cluster)')?.click());
+    await page.waitForTimeout(500);
+    assert(await page.locator('.ibama-official-popup').count()===1,'Clicking a new event must close the previous official popup');
+    // Reopen shared location and verify the list/back navigation.
+    await first.evaluate(button=>button.click());
+    await page.waitForFunction(()=>!!document.querySelector('.ibama-case-choice'),null,{timeout:7000});
     await page.locator('.ibama-choice-back').click({force:true});
     assert(await page.locator('.ibama-case-choice').count()>1,
       'Return to exact-coordinate selection failed');

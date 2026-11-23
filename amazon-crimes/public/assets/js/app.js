@@ -1,5 +1,5 @@
 import { translations } from './i18n.js';
-import { installIbama2025, refreshIbamaLanguage, ibama2025Health } from './ibama-2025.js?v=20261123-evidence2';
+import { installIbama2025, refreshIbamaLanguage, ibama2025Health, setIbamaOfficialMode } from './ibama-2025.js?v=20261123-globalrole1';
 import { preferredLanguage, selectLanguage, listenLanguage } from './language-preference.js?v=20261115-unified';
 import { createTemporalFilter } from './temporal-filter.js?v=20261115-lastyear';
 import { crimeTypes, crimeTypeMeta, mapConfig, futureLayerGroups } from './config.js';
@@ -45,6 +45,7 @@ const activeMosaics = new Set();
 const mosaicErrors = new Map();
 const state = { search: '', crimeType: 'all', status: 'all' };
 let initialEventFitDone = false;
+let dataView = 'osint';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -680,7 +681,7 @@ function updateLayerVisibility() {
   syncMosaicLayers(map, activeMosaics, mapTheme);
   const crimeLayer = 'crime-events';
   if (map.getLayer(crimeLayer)) {
-    map.setLayoutProperty(crimeLayer, 'visibility', activeCrimeLayers.size ? 'visible' : 'none');
+    map.setLayoutProperty(crimeLayer, 'visibility', dataView==='osint' && activeCrimeLayers.size ? 'visible' : 'none');
     const enabled = [...activeCrimeLayers];
     map.setFilter(crimeLayer, enabled.length
       ? ['in', ['get', 'primary_crime_type'], ['literal', enabled]]
@@ -1287,7 +1288,29 @@ function escapeHtml(value = '') {
 }
 function escapeAttr(value = '') { return escapeHtml(value); }
 
+function changeDataView(view) {
+  const next=view==='official'?'official':'osint';
+  dataView=next;
+  document.body.dataset.dataView=next;
+  const rail=document.getElementById('official-rail');
+  if(rail)rail.hidden=next!=='official';
+  const caption=document.getElementById('official-map-caption');
+  if(caption)caption.hidden=next!=='official';
+  for(const key of ['osint','official']){
+    const btn=document.getElementById('mode-'+key);
+    if(btn){const selected=key===next;btn.classList.toggle('active',selected);btn.setAttribute('aria-pressed',String(selected));}
+  }
+  setIbamaOfficialMode(next==='official');
+  closePopup();
+  if(map){
+    updateLayerVisibility();
+    map.resize();
+    scheduleMapResync('data-source-toggle',70);
+  }
+}
 function bindControls() {
+  document.getElementById('mode-osint')?.addEventListener('click',()=>changeDataView('osint'));
+  document.getElementById('mode-official')?.addEventListener('click',()=>changeDataView('official'));
   $$('.lang').forEach((button) => button.addEventListener('click', () => setLanguage(button.dataset.lang)));
   $('#search').addEventListener('input', (event) => { state.search = event.target.value; applyFilters(); });
   $('#crime-type').addEventListener('change', (event) => { state.crimeType = event.target.value; applyFilters(); });
@@ -1386,7 +1409,7 @@ window.__amazonMapHealth = () => {
     if(data?.features)sourceFeatureCount=data.features.length;
   }catch(error){renderError=String(error?.message||error);}
   return {
-    total:events.length, filtered:filteredEvents.length,
+    total:events.length, filtered:filteredEvents.length, dataView,
     mapConstructed:Boolean(map),styleLoaded:loaded,
     mapCanvas:Boolean(canvas),mapError:node?.querySelector('.map-unavailable')?.textContent||null,
     layer:Boolean(layer),source:Boolean(source),visible,rendered,sourceFeatureCount,

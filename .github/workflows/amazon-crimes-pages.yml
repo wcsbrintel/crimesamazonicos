@@ -54,8 +54,12 @@ jobs:
       - name: Generate same-origin protected-area tiles
         run: node scripts/build-territorial-tiles.mjs
 
+      - name: Build IBAMA 2025 official administrative layers
+        run: python3 scripts/build-ibama-2025.py --output public/data/ibama-2025.json
+
       - name: Validate JavaScript
         run: |
+          node --check public/assets/js/ibama-2025.js
           node --check public/assets/js/app.js
           node --check public/assets/js/temporal-filter.js
           node --check scripts/build-territorial-tiles.mjs

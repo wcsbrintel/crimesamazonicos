@@ -127,7 +127,7 @@ try {
   for(const key of ['protected_areas','brazil_conservation_units','indigenous_lands','strict_protection','sustainable_use']){
     const loc=page.locator('input.aux-layer-toggle[value="'+key+'"]');
     console.log('OVERLAY_UI',key,await loc.count());
-    if(await loc.count())await loc.check({force:true});
+    if(await loc.count())await loc.evaluate(el=>{if(!el.checked){el.checked=true;el.dispatchEvent(new Event('change',{bubbles:true}));}});
   }
   await page.waitForTimeout(12000);
   console.log('OVERLAY_RESPONSE_SUMMARY',JSON.stringify(tileResponses.slice(0,40)));

@@ -716,6 +716,37 @@ body.how-it-works-open { overflow: hidden; }
 .mosaic-popup p { font-size:11px; line-height:1.5; margin:0 0 7px; }
 .mosaic-popup small { color:var(--muted); font-size:10px; }
 
+/* Resilient IBAMA HTML markers, visible independently of MapLibre style layers. */
+.ibama-html-pin {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  background: var(--ibama-color, #669d83);
+  box-shadow: 0 1px 6px rgba(0,0,0,.45);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.ibama-html-pin:hover, .ibama-html-pin:focus-visible {
+  outline: 2px solid var(--ibama-color, #669d83);
+  outline-offset: 2px;
+  z-index: 5;
+}
+.ibama-html-cluster {
+  width: 30px;
+  height: 30px;
+  border: 2px solid rgba(255,255,255,.95);
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,.65);
+}
+.ibama-html-cluster:hover { transform: scale(1.1); }
 /* IBAMA official 2025 layer — separate from canonical OSINT events. */
 .ibama-section { border-top: 1px solid var(--line); }
 .ibama-note { margin: 6px 0 11px; font-size: 10px; line-height: 1.5; color: var(--muted); }

@@ -66,6 +66,16 @@ try {
   console.log('MAP HEALTH:',JSON.stringify(mapState));
   assert(mapState.diagnostics?.mapConstructed,'MapLibre map instance was not initialized');
   assert(mapState.diagnostics?.styleLoaded,'Map style did not load');
+  // Explicit source selector: the default remains canonical OSINT and cannot be
+  // contaminated by administrative records.
+  assert(await page.locator('body').getAttribute('data-data-view')==='osint','Default mode must be OSINT');
+  assert((await page.locator('.ibama-html-pin').count())===0,'IBAMA markers must not cover OSINT by default');
+  await page.locator('#mode-official').click();
+  await page.waitForFunction(()=>document.body.dataset.dataView==='official'&&!!document.querySelector('#official-rail:not([hidden])'));
+  await page.waitForFunction(()=>Number((document.querySelector('#official-total')?.textContent||'').replace(/[^0-9]/g,''))>0);
+  assert(await page.locator('#official-year').inputValue()==='2025','Only verified 2025 IBAMA year available');
+  assert(await page.locator('#official-rail').isVisible(),'Official rail not visible');
+  assert(!(await page.locator('#event-feed').isVisible()),'OSINT feed should be hidden in official mode');
   // Regression test: official 2025 IBAMA records must be visible, not merely counted.
   await page.waitForFunction(() => window.__amazonMapHealth?.().ibama?.status === 'ready', null, {timeout: 30000});
   await page.waitForFunction(() => document.querySelectorAll('.ibama-html-pin').length > 0, null, {timeout: 15000});
@@ -117,6 +127,22 @@ try {
       'Return to exact-coordinate selection failed');
     await page.keyboard.press('Escape');
   }
+  // Official thematic filter, state filter and text search are applied to both
+  // the map and the list through one selected-record collection.
+  await page.locator('#official-select-none').click();
+  await page.waitForFunction(()=>Number((document.querySelector('#official-total')?.textContent||'').replace(/[^0-9]/g,''))===0);
+  await page.locator('input.official-category-toggle[value="mining"]').check();
+  await page.waitForFunction(()=>Number((document.querySelector('#official-total')?.textContent||'').replace(/[^0-9]/g,''))>0);
+  const filteredMining=await page.evaluate(()=>window.__amazonMapHealth?.().ibama?.explorer);
+  console.log('OFFICIAL FILTERED MINING',JSON.stringify(filteredMining));
+  assert(filteredMining.visible>0&&filteredMining.visible<ibamaHealth.features,'Mining filter failed');
+  await page.locator('#official-state').selectOption('PA');
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.state==='PA');
+  await page.locator('#official-reset').click();
+  await page.locator('#mode-osint').click();
+  await page.waitForFunction(()=>document.body.dataset.dataView==='osint');
+  await page.waitForTimeout(300);
+  assert(!(await page.locator('#official-rail').isVisible()),'Official panel must hide in OSINT mode');
   assert(mapState.diagnostics?.layer,'Map crime-events layer missing');
   assert(mapState.diagnostics?.source,'Map event GeoJSON source missing');
   assert(mapState.diagnostics?.rendered>0,'Crime-event circles not visibly rendered on the map');

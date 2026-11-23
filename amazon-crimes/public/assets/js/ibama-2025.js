@@ -104,7 +104,7 @@ function fitOfficialPopup(popupView) {
  const content=popupView.getElement()?.querySelector('.maplibregl-popup-content');
  const area=mapEl.getBoundingClientRect();
  if(!content || !area.width || !area.height) return;
- const availableHeight=Math.max(155,area.height-30);
+ const availableHeight=Math.max(155,Math.min(420,area.height-58));
  content.style.maxHeight=availableHeight+'px';
  content.style.overflowY='auto';
  // MapLibre may choose a different anchor after setHTML. Recheck only
@@ -129,7 +129,7 @@ function fitOfficialPopup(popupView) {
 function createOfficialPopup(location,maxWidth='450px'){
  closeOfficialPopup();
  const pop=new lib.Popup({
-   closeButton:true,closeOnClick:false,anchor:'bottom',
+   closeButton:true,closeOnClick:false,
    maxWidth,offset:12,className:'ibama-official-popup'
  }).setLngLat(location).addTo(map);
  activeOfficialPopup=pop;

@@ -86,12 +86,12 @@ def build(output):
                     import itertools
                     reader=csv.DictReader(itertools.chain([first],f),delimiter=delimiter)
                     headers={normalize(k) for k in (reader.fieldnames or [])}
-                    if "UF" not in headers or "TIPO_INFRACAO" not in headers:
+                    if "UF" not in headers or not ({"TIPO_INFRACAO","TIPO_INF"} & headers):
                         raise RuntimeError("Unexpected source schema: "+", ".join(sorted(headers)[:25]))
                     for source_row in reader:
                         counts["records_read"]+=1
                         row={normalize(k):v for k,v in source_row.items() if k}
-                        date=parse_date(field(row,"DAT_HORA_AUTO_INFRACAO","DATA_AUTO_INFRACAO"))
+                        date=parse_date(field(row,"DAT_HORA_AUTO_INFRACAO","DATA_AUTO_INFRACAO","DAT_AUT","DAT_HORA_AUT","DATA_AUT","DAT_LAVRATURA"))
                         if not date: continue
                         counts["year_2025"]+=1
                         uf=normalize(field(row,"UF"))
@@ -100,8 +100,8 @@ def build(output):
                         status=normalize(field(row,"DES_STATUS_FORMULARIO"))
                         if cancelled in {"S","SIM","TRUE","1"} or any(x in status for x in ("CANCEL","EXCLUID","SUBSTITUID")):
                             counts["cancelled"]+=1; continue
-                        lat=decimal(field(row,"NUM_LATITUDE_AUTO","NUM_LATITUDE","LATITUDE"))
-                        lon=decimal(field(row,"NUM_LONGITUDE_AUTO","NUM_LONGITUDE","LONGITUDE"))
+                        lat=decimal(field(row,"NUM_LATITUDE_AUTO","NUM_LATITUDE","LATITUDE","NUM_LAT"))
+                        lon=decimal(field(row,"NUM_LONGITUDE_AUTO","NUM_LONGITUDE","LONGITUDE","NUM_LON"))
                         if lat is None or lon is None or not (-18.5<=lat<=6 and -76<=lon<=-42) or (lat==0 and lon==0):
                             counts["missing_or_invalid_coordinates"]+=1; continue
                         key=field(row,"SEQ_AUTO_INFRACAO","SEQ_AUT")
@@ -110,7 +110,7 @@ def build(output):
                         if not key.strip("- "): counts["missing_id"]+=1; continue
                         if key in seen: counts["duplicate_id"]+=1; continue
                         seen.add(key)
-                        tipo=field(row,"TIPO_INFRACAO","TIPO_INF")
+                        tipo=field(row,"TIPO_INFRACAO","TIPO_INF","NOME_INF")
                         descricao=field(row,"DES_INFRACAO","DES_INF")
                         descricao=re.sub(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b","[redacted]",descricao)
                         category=classify(tipo,descricao)

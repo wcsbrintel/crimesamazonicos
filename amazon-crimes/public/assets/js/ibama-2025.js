@@ -120,7 +120,8 @@ function fitOfficialPopup(popupView) {
    if(popupRect.top<region.top+margin)shiftY=region.top+margin-popupRect.top;
    else if(popupRect.bottom>region.bottom-margin)shiftY=region.bottom-margin-popupRect.bottom;
    if(Math.abs(shiftX)>1||Math.abs(shiftY)>1){
-     map.panBy([shiftX,shiftY],{duration:250});
+     // Camera offset has the opposite sign to the desired screen translation.
+     map.panBy([-shiftX,-shiftY],{duration:250});
    }
  };
  requestAnimationFrame(()=>requestAnimationFrame(reposition));

@@ -69,6 +69,8 @@ function recordDetails(props) {
   [l.multiple,(props.categories||[props.category]).map(c=>TYPES.find(t=>t[0]===c)?.[2]?.[lang()]||c).join(', ')]
  ];
  const body=fields.filter(([,v])=>v!==null&&v!==undefined&&String(v).trim()).map(([k,v])=>'<div class="ibama-detail-row"><strong>'+html(k)+':</strong> <span>'+html(v)+'</span></div>').join('');
+ const narrative=extra.narrative_detail
+  ? '<section class="ibama-record-section ibama-narrative"><h4>'+html(({pt:'Detalhamento',en:'Details',es:'Detalle'})[lang()])+'</h4><p>'+html(extra.narrative_detail)+'</p><small>IBAMA · DES_AUTO_INFRACAO</small></section>' : '';
  const biological=(title,items)=>items?.length?'<section class="ibama-record-section"><h4>'+html(title)+' ('+items.length+')</h4><ul>'+
   items.map(item=>'<li><strong class="ibama-taxon">'+html(item.scientific_name||item.common_name||'—')+'</strong>'+
   (item.common_name&&item.scientific_name?' — '+html(item.common_name):'')+
@@ -80,8 +82,9 @@ function recordDetails(props) {
   (item.quantity!==null&&item.quantity!==undefined?' · '+html(formatNum(item.quantity))+' '+html(item.unit||''):'')+
   (item.term_id?' · TAD '+html(item.term_id):'')+'</li>').join('')+'</ul></section>':'';
  const terms=props.seizure_terms?.length?'<section class="ibama-record-section"><h4>'+html(l.terms)+'</h4><ul>'+
-  props.seizure_terms.map(item=>'<li>'+html([item.number,item.series,item.date].filter(Boolean).join(' · '))+'</li>').join('')+'</ul></section>':'';
- return '<strong>IBAMA · 2025</strong><p>'+html(tr.status)+'</p>'+body+
+  props.seizure_terms.map(item=>'<li><strong>'+html([item.number,item.series,item.date].filter(Boolean).join(' · ')||item.id)+'</strong>'+
+   (item.seizure_detail?'<div class="ibama-tad-detail"><strong>'+html(({pt:'Detalhamento da apreensão',en:'Seizure details',es:'Detalle de la incautación'})[lang()])+'</strong><p>'+html(item.seizure_detail)+'</p><small>IBAMA · DS_TAD</small></div>':'')+'</li>').join('')+'</ul></section>':'';
+ return '<strong>IBAMA · 2025</strong><p>'+html(tr.status)+'</p>'+body+narrative+
   biological(l.species,props.species_referenced)+biological(l.seizedSpecies,props.seized_specimens)+goods+terms+
   '<p><a href="https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao" target="_blank" rel="noopener noreferrer">'+html(tr.source)+'</a></p>';
 }

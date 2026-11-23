@@ -64,6 +64,7 @@ jobs:
         run: |
           node --check public/assets/js/ibama-2025-dom.js
           node --check public/assets/js/official-explorer.js
+          node --check public/assets/js/ibama-kde.js
           node --check public/assets/js/ibama-2025.js
           node --check public/assets/js/app.js
           node --check public/assets/js/temporal-filter.js

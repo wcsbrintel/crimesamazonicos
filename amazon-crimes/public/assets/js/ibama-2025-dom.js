@@ -112,7 +112,13 @@ export function createIbamaDomOverlay({map,maplibregl,getFeatures,getEnabledCate
    // Just two neutral tones, as in the visual reference. No category colours.
    entry.button.style.setProperty('--ibama-color',n>1?'#595e61':'#252729');
    entry.button.style.setProperty('--city-size',Math.min(38,Math.max(21,21+Math.log2(n)*2.4)).toFixed(1)+'px');
-   entry.button.textContent=isCity?n.toLocaleString(locale()):'';
+   if(isCity){
+    const caption=group.municipality+' · '+group.uf;
+    entry.button.replaceChildren();
+    const amount=document.createElement('span');amount.className='ibama-city-total';amount.textContent=n.toLocaleString(locale());
+    const label=document.createElement('span');label.className='ibama-city-label';label.textContent=caption;
+    entry.button.append(amount,label);
+   }else entry.button.replaceChildren();
    const title=isCity?group.municipality+' · '+group.uf+' · '+n.toLocaleString(locale())+
       (getLanguage()==='pt'?' autos oficiais':getLanguage()==='es'?' actas oficiales':' official notices')
      :n>1?n.toLocaleString(locale())+' records at identical coordinates':'Official IBAMA record';

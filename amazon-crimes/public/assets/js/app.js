@@ -39,7 +39,9 @@ const htmlMarkerLayerIds = new Set(['weather_stations', 'river_gauges', 'armed_g
 
 // Layer state is intentionally session-scoped. Persisting visibility caused stale/empty
 // layer selections to survive reloads and make valid events disappear from the map.
-const activeCrimeLayers = new Set(crimeTypes);
+// Start with no optional crime layers selected. Users explicitly enable
+// the thematic categories they want to see; this selection is session-only.
+const activeCrimeLayers = new Set();
 const activeAuxLayers = new Set();
 const activeMosaics = new Set();
 const mosaicErrors = new Map();

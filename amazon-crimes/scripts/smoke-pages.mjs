@@ -144,6 +144,14 @@ try {
   assert(initialKde.drawnRecords===ibamaHealth.features,
          'KDE must weight every filtered official record, not one per coordinate');
   assert(initialKde.referenceCount===100,'Hotspots must use stable absolute count scale');
+  assert(initialKde.palette==='wildlife-reference-absolute-v2','Hotspots do not use the wildlife-style palette');
+  assert(initialKde.drawnLocations===ibamaHealth.dom.selectedDistinctLocations,'KDE must preserve countable autos across identical coordinates');
+  const actualHeatStyle=await page.evaluate(()=>{
+    const map=window.__amazonMapHealth?.();
+    return {gradient:document.querySelector('.official-kde-gradient')?.style?.background||null};
+  });
+  console.log('IBAMA WILDLIFE-STYLE HOTSPOTS',JSON.stringify(actualHeatStyle));
+
   assert(await page.locator('#official-kde-label').textContent()==='Hotspots','KDE button label must be Hotspots');
   const sizeBefore=await page.locator('.ibama-html-pin:not(.ibama-html-cluster)').first().evaluate(el=>{
     const dot=getComputedStyle(el,'::after');return [dot.width,dot.height];

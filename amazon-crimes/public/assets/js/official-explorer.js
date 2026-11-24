@@ -25,7 +25,7 @@ const TYPES=[
 ];
 const lookup=Object.fromEntries(TYPES.map(t=>[t[0],t]));
 export function createOfficialExplorer({getLanguage,onChange,onSelectRecord}){
- let features=[],ready=false,error=false,mode='osint',search='',state='all',year='2025',visibleLimit=36,enabled=new Set(TYPES.map(t=>t[0])),selected=[];
+ let features=[],ready=false,error=false,mode='osint',search='',state='all',year='2025',visibleLimit=36,enabled=new Set(),selected=[];
  const language=()=>['pt','en','es'].includes(getLanguage())?getLanguage():'en';
  const t=()=>D[language()];
  const categories=f=>f?.properties?.categories?.length?f.properties.categories:[f?.properties?.category||'other'];
@@ -71,6 +71,13 @@ export function createOfficialExplorer({getLanguage,onChange,onSelectRecord}){
   const lang=language();
   const all=filtered(true), counts=Object.fromEntries(TYPES.map(([k])=>[k,0]));
   for(const f of all)for(const k of categories(f))if(k in counts)counts[k]+=1;
+  const allButton=$('official-select-all'), noneButton=$('official-select-none');
+  const allChosen=enabled.size===TYPES.length,noneChosen=enabled.size===0;
+  for(const [button,active] of [[allButton,allChosen],[noneButton,noneChosen]]){
+   if(!button)continue;
+   button.classList.toggle('active',active);
+   button.setAttribute('aria-pressed',String(active));
+  }
   const host=$('official-category-list');
   if(!host)return;
   host.innerHTML=TYPES.map(([key,color,labels])=>'<label class="official-category-row'+(enabled.has(key)?' selected':'')+'"><input type="checkbox" class="official-category-toggle" value="'+key+'"'+(enabled.has(key)?' checked':'')+'><i class="official-category-dot" style="--category-color:'+color+'"></i><span>'+SAFE(labels[lang]||labels.pt)+'</span><b>'+fmt(counts[key],lang)+'</b></label>').join('');
@@ -122,7 +129,7 @@ export function createOfficialExplorer({getLanguage,onChange,onSelectRecord}){
   $('official-select-all').addEventListener('click',()=>{TYPES.forEach(t=>enabled.add(t[0]));renderCategories();refresh();});
   $('official-select-none').addEventListener('click',()=>{enabled.clear();renderCategories();refresh();});
   $('official-reset').addEventListener('click',()=>{
-   year='2025';state='all';search='';visibleLimit=36;enabled=new Set(TYPES.map(t=>t[0]));
+   year='2025';state='all';search='';visibleLimit=36;enabled=new Set();
    $('official-year').value=year;$('official-state').value=state;$('official-search').value=search;
    render();
   });

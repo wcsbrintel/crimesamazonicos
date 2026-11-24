@@ -746,7 +746,8 @@ body.how-it-works-open { overflow: hidden; }
   color: #fff;
   text-shadow: 0 1px 2px rgba(0,0,0,.65);
 }
-.ibama-html-cluster:hover { transform: scale(1.1); }
+/* Never override the transform computed by MapLibre: doing so shifts the geographic position. */
+.ibama-html-cluster:hover { filter:brightness(.92); }
 /* Individual IBAMA notices sharing an exact georeferenced site. */
 .ibama-choices { min-width: min(315px, calc(100vw - 70px)); max-height: min(65vh, 620px); overflow: auto; }
 .ibama-exact-note { line-height: 1.5; }

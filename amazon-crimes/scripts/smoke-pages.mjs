@@ -86,9 +86,38 @@ try {
   console.log('IBAMA 2025 VISIBLE POINTS:',JSON.stringify(ibamaHealth));
   assert(ibamaHealth.features > 0, 'IBAMA official source has no valid 2025 records');
   assert(ibamaHealth.domNodes > 0, 'IBAMA markers are not visible on the map');
+  const cityMode=ibamaHealth.dom.displayMode==='city';
+  const cityCount=await page.locator('.ibama-html-pin.ibama-city-group').count();
+  console.log('IBAMA CITY ZOOM MODE',JSON.stringify({zoom:mapState.diagnostics.zoom,cityMode,cityCount}));
+  if(cityMode){
+    assert(cityCount>0,'Low zoom must show city-level groups for the official IBAMA data');
+    const city=page.locator('.ibama-html-pin.ibama-city-group').first();
+    const cityInfo=await city.evaluate(el=>({title:el.title,count:el.querySelector('.ibama-city-total')?.textContent,
+      name:el.querySelector('.ibama-city-label')?.textContent,width:parseFloat(getComputedStyle(el).width)}));
+    assert(cityInfo.name&&cityInfo.count&&cityInfo.width>=20,
+       'City group must show documented city name and number of autos');
+    await city.evaluate(el=>el.click());
+    await page.waitForFunction(()=>document.querySelectorAll('.ibama-case-choice').length>0,null,{timeout:7000});
+    assert(await page.locator('.ibama-exact-note').textContent().then(t=>/municipality|município|municipio/.test(t)),
+      'City group must explain municipality-level aggregation');
+    await page.locator('.ibama-official-popup .maplibregl-popup-close-button').click({force:true});
+  }
+  const groupInvariant=await page.evaluate(async()=>{
+    const module=await import(new URL('./assets/js/ibama-2025-dom.js?v=20261124-city1',document.baseURI).href);
+    const example=(lon,lat,city,uf)=>({type:'Feature',geometry:{type:'Point',coordinates:[lon,lat]},
+      properties:{category:'mining',categories:['mining'],municipality:city,uf}});
+    const exact=module.exactCoordinateGroups([example(-60,-3,'Manaus','AM'),
+      example(-60.2,-3.1,'Manaus','AM'),example(-60,-3,'Manaus','AM'),
+      example(-60.2,-3.1,'Manacapuru','AM')],new Set(['mining']));
+    const city=module.municipalityGroups(exact);
+    return {exact:exact.length,city:city.length,manaus:city.find(g=>g.municipality==='Manaus')?.members.length,
+      totals:city.reduce((n,g)=>n+g.members.length,0)};
+  });
+  assert(groupInvariant.exact===2&&groupInvariant.city===2&&groupInvariant.manaus===3&&groupInvariant.totals===4,
+    'Municipality groups must preserve every record while exact coordinate groups stay distinct');
   const markerStyleAudit = await page.evaluate(() => {
     const pins = [...document.querySelectorAll('.ibama-html-pin')];
-    const sample = [pins[0], pins.find(el=>el.classList.contains('ibama-html-cluster'))].filter(Boolean);
+    const sample = [pins.find(el=>!el.classList.contains('ibama-city-group')), pins.find(el=>el.classList.contains('ibama-html-cluster')&&!el.classList.contains('ibama-city-group'))].filter(Boolean);
     return sample.map(el => {
       const style = getComputedStyle(el);
       const dot = getComputedStyle(el,'::after');
@@ -143,8 +172,8 @@ try {
   assert(initialKde.visible&&initialKde.layer,'Hotspots layer must be visible in official mode');
   assert(initialKde.drawnRecords===ibamaHealth.features,
          'KDE must weight every filtered official record, not one per coordinate');
-  assert(initialKde.referenceCount===100,'Hotspots must use stable absolute count scale');
-  assert(initialKde.palette==='wildlife-reference-absolute-v2','Hotspots do not use the wildlife-style palette');
+  assert(initialKde.referenceCount===null,'Wildlife-equivalent KDE must use original unnormalised event weights');
+  assert(initialKde.palette==='wildlife-exact-v3'&&initialKde.scale==='relative','Hotspots must use exactly the wildlife heatmap paint');
   assert(initialKde.drawnLocations===ibamaHealth.dom.selectedDistinctLocations,'KDE must preserve countable autos across identical coordinates');
   const actualHeatStyle=await page.evaluate(()=>{
     const map=window.__amazonMapHealth?.();
@@ -165,8 +194,7 @@ try {
   });
   assert(JSON.stringify(sizeBefore)===JSON.stringify(sizeAfter),'Hotspots toggle changed point size');
   assert(ibamaHealth.enabled.length > 0, 'IBAMA thematic categories are all disabled');
-  // Every DOM marker corresponds to one exact numeric coordinate pair.
-  // No pixel-binning, zoom clusters or skipped groups.
+  // The source retains every exact coordinate; city aggregation applies only to marker display at lower zoom.
   const exactLocationAudit = await page.evaluate(async () => {
     const response = await fetch(new URL('./data/ibama-2025.json', document.baseURI), {cache:'no-store'});
     if (!response.ok) throw new Error('IBAMA source unavailable: HTTP ' + response.status);
@@ -250,7 +278,7 @@ try {
     window.__amazonMapHealth?.().ibama?.explorer?.visible,null,{timeout:20000});
   const miningKde=await page.evaluate(()=>window.__amazonMapHealth?.().ibama?.kde);
   assert(miningKde.drawnRecords===filteredMining.visible,'Hotspots did not update to filtered mining record count');
-  assert(miningKde.referenceCount===initialKde.referenceCount,'Hotspots rescaled their density threshold');
+  assert(miningKde.scale===initialKde.scale,'Hotspots changed their KDE rendering mode after filtering');
   assert(filteredMining.visible>0&&filteredMining.visible<ibamaHealth.features,'Mining filter failed');
   await page.locator('#official-state').selectOption('PA');
   await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.state==='PA');

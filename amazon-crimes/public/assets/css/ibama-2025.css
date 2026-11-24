@@ -90,7 +90,7 @@ body[data-data-view="official"] .ibama-official-popup .ibama-choices {
 .official-kde-legend { padding-top:10px; }
 .official-kde-legend[hidden] { display:none!important; }
 #official-kde-legend-caption { display:block; font-size:10px; color:var(--muted); line-height:1.45; margin-bottom:7px; }
-.official-kde-gradient { height:7px; border-radius:5px; background:linear-gradient(to right,rgba(48,118,205,.45),#319cd3,#55cdad,#e7e259,#f4a632,#e15a2f,#b52026); }
+.official-kde-gradient { height:10px; border-radius:99px; border:1px solid #6f7774; background:linear-gradient(90deg,#21a6d9,#1684c5,#ffe65b,#ff8f39,#e63832); }
 .official-kde-scale { display:flex; justify-content:space-between; gap:9px; font-size:9px; margin-top:6px; color:var(--muted); }
 
 .official-kde-separator{height:1px;background:var(--line);margin:10px 0;}

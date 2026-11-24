@@ -150,6 +150,21 @@ function createOfficialPopup(location,maxWidth='450px'){
  pop.on('close',()=>{if(activeOfficialPopup===pop)activeOfficialPopup=null;});
  return pop;
 }
+function focusOfficialLocation(location){
+ const lng=Number(location?.lng),lat=Number(location?.lat);
+ if(!Number.isFinite(lng)||!Number.isFinite(lat))return;
+ // Always follow the clicked source coordinate, never a municipality centroid.
+ // Keep existing zoom if already closer; do not zoom out on another click.
+ map.easeTo({center:[lng,lat],zoom:Math.max(map.getZoom(),8.5),duration:450});
+}
+function openOfficialRecord(props,location){
+ focusOfficialLocation(location);
+ popup(props,location);
+}
+function openOfficialGroup(group,location){
+ focusOfficialLocation(location);
+ groupPopup(group,location);
+}
 function popup(props,location){
  const view=createOfficialPopup(location);
  view.setHTML('<div class="ibama-popup ibama-detailed">'+recordDetails(props)+'</div>');
@@ -234,7 +249,7 @@ export function installIbama2025(theMap,theLibrary,languageGetter){
    if(legend) legend.hidden=!densityToggle.checked;
  });
  kdeOverlay.setEnabled(Boolean(densityToggle?.checked));
- domOverlay=createIbamaDomOverlay({map,maplibregl:lib,getFeatures:()=>officialMode?officialExplorer.selected():[],getEnabledCategories:()=>officialMode?officialExplorer.enabled():emptyEnabled,getLanguage:()=>lang(),onSingle:popup,onGroup:groupPopup});
+ domOverlay=createIbamaDomOverlay({map,maplibregl:lib,getFeatures:()=>officialMode?officialExplorer.selected():[],getEnabledCategories:()=>officialMode?officialExplorer.enabled():emptyEnabled,getLanguage:()=>lang(),onSingle:openOfficialRecord,onGroup:openOfficialGroup});
  domOverlay.start();
  const pointsToggle=document.getElementById('official-points-toggle');
  pointsToggle?.addEventListener('change',()=>{

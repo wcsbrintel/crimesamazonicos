@@ -297,12 +297,24 @@ try {
       const area=document.querySelector('#map');
       if(!card||!area)return null;
       const box=card.getBoundingClientRect(), map=area.getBoundingClientRect();
-      return {left:box.left-map.left,top:box.top-map.top,right:map.right-box.right,bottom:map.bottom-box.bottom,width:box.width,height:box.height,mapWidth:map.width,mapHeight:map.height};
+      const view={left:Math.max(10,map.left+12),right:Math.min(window.innerWidth-10,map.right-12),
+        top:Math.max(10,map.top+12),bottom:Math.min(window.innerHeight-10,map.bottom-12)};
+      return {left:box.left-view.left,top:box.top-view.top,right:view.right-box.right,bottom:view.bottom-box.bottom,
+        centerX:(box.left+box.right)/2-(view.left+view.right)/2,
+        centerY:(box.top+box.bottom)/2-(view.top+view.bottom)/2,
+        width:box.width,height:box.height,mapWidth:map.width,mapHeight:map.height,
+        windowWidth:window.innerWidth,windowHeight:window.innerHeight,
+        visibleWidth:view.right-view.left,visibleHeight:view.bottom-view.top,
+        scrollTop:card.querySelector('.maplibregl-popup-content')?.scrollTop};
     });
     console.log('OFFICIAL POPUP FIT',JSON.stringify(officialCardLayout));
     assert(officialCardLayout && officialCardLayout.left>=-18 && officialCardLayout.top>=-18 &&
            officialCardLayout.right>=-18 && officialCardLayout.bottom>=-18,
-           'Official popup must fit inside the map viewport');
+           'Official popup must fit inside the visible non-fullscreen browser viewport');
+    assert(Math.abs(officialCardLayout.centerX)<=30 && Math.abs(officialCardLayout.centerY)<=30,
+           'Official popup must be centered in the visible map area, not only somewhere within the map');
+    assert(officialCardLayout.scrollTop===0,
+           'Official card must open at the beginning of its content');
     const detailTitle=await page.locator('.ibama-official-popup .ibama-popup>strong').first().textContent();
     assert(/Official Data|Dados Oficiais|Datos oficiales/.test(detailTitle||''),'Detail popup must use source-neutral title');
     await page.evaluate(()=>document.querySelector('.ibama-html-pin:not(.ibama-html-cluster)')?.click());

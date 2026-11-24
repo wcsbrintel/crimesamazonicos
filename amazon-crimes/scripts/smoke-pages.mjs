@@ -95,7 +95,7 @@ try {
       return {outerWidth:parseFloat(style.width),outerHeight:parseFloat(style.height),
         border:style.borderTopWidth,boxShadow:style.boxShadow,
         dotWidth:parseFloat(dot.width),dotHeight:parseFloat(dot.height),
-        dotColor:dot.backgroundColor,dotBorder:dot.borderTopWidth,
+        dotColor:dot.backgroundColor,dotBorder:dot.borderTopWidth,dotOutline:dot.boxShadow,
         content:el.textContent.trim(),cluster:el.classList.contains('ibama-html-cluster')};
     });
   });
@@ -103,16 +103,38 @@ try {
   assert(markerStyleAudit.length>0,'Cannot inspect official IBAMA marker design');
   assert(!(await page.locator('.official-results').isVisible()),'Official record list must be hidden from sidebar');
   for (const dot of markerStyleAudit) {
-    assert(dot.border==='0px' && dot.dotBorder==='0px','IBAMA points must have no border');
+    assert(dot.border==='0px' && dot.dotBorder==='0px','Marker and core borders must be zero');
+    assert(dot.dotOutline.includes('0.5px') && dot.dotOutline.includes('1.5px'),'White gap and black outline must be present on all IBAMA dots');
     if (dot.cluster) {
-      assert(dot.outerWidth>=20 && dot.outerWidth<=26,'Exact-coordinate group marker must be modest in size');
+      assert(dot.outerWidth===12 && dot.outerHeight===12,'All official marker hit targets must be the same 12px size');
+      assert(dot.dotWidth===5 && dot.dotHeight===5,'Grouped and single location dots must have the same 5px colour core');
       assert(dot.content==='','Exact-coordinate shared-site marker must not display record counts');
     } else {
       assert(dot.dotWidth<=6 && dot.dotHeight<=6,'Individual official dots must stay at 5px');
       assert(dot.content==='','Individual official map dots cannot display count badges');
-      assert(dot.boxShadow==='none','Individual official dots cannot have halos');
+      assert(dot.outerWidth===12 && dot.outerHeight===12,'Individual marker hit target must be 12px');
+      assert(dot.boxShadow==='none','Individual dot container must have no halo');
     }
   }
+
+  // Independent points toggle: hides official markers without changing filtered
+  // record totals or the KDE source. Re-enable and verify identical marker size.
+  const filteredTotalBefore=ibamaHealth.explorer.visible;
+  const kdeBeforeToggle=await page.evaluate(()=>window.__amazonMapHealth?.().ibama?.kde);
+  assert(await page.locator('#official-points-toggle').isChecked(),'Points should show initially');
+  await page.locator('#official-points-toggle').uncheck();
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.dom?.pointsVisible===false
+    && document.querySelectorAll('.ibama-html-pin').length===0,null,{timeout:10000});
+  const hiddenState=await page.evaluate(()=>window.__amazonMapHealth?.().ibama);
+  assert(hiddenState.explorer.visible===filteredTotalBefore,'Hiding points changed filtered records');
+  assert(hiddenState.kde.enabled===kdeBeforeToggle.enabled,'Hiding points changed Hotspots');
+  await page.locator('#official-points-toggle').check();
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.dom?.pointsVisible===true
+    && document.querySelectorAll('.ibama-html-pin').length>0,null,{timeout:12000});
+  const reopened=await page.locator('.ibama-html-pin').first().evaluate(el=>{
+    const core=getComputedStyle(el,'::after');return {width:core.width,height:core.height};
+  });
+  assert(reopened.width==='5px'&&reopened.height==='5px','Point size changed after toggling visibility');
 
   // Hotspots are a separate count-weighted MapLibre heatmap; points stay unchanged.
   await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.kde?.drawnRecords>0,null,{timeout:20000});

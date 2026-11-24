@@ -72,8 +72,14 @@ try {
   assert((await page.locator('.ibama-html-pin').count())===0,'IBAMA markers must not cover OSINT by default');
   // A fresh visit starts with every optional layer unchecked.
   await page.locator('#layers-toggle').click();
-  assert(await page.locator('.crime-layer-toggle:checked').count()===0,
-    'Crime thematic layers must start unselected');
+  const osintCategoryCount=await page.locator('.crime-layer-toggle').count();
+  assert(osintCategoryCount>0,'OSINT thematic categories were not rendered');
+  assert(await page.locator('.crime-layer-toggle:checked').count()===osintCategoryCount,
+    'All OSINT categories must start enabled independently of the official Nenhuma selection');
+  assert(mapState.diagnostics?.visible==='visible',
+    'OSINT events must be visible on the map on first load');
+  assert(mapState.diagnostics?.htmlEventMarkers>0,
+    'OSINT georeferenced event markers must render when opening the map');
   assert(await page.locator('.aux-layer-toggle:checked').count()===0,
     'Auxiliary layers must start unselected');
   assert(await page.locator('.mosaic-layer-toggle:checked').count()===0,
@@ -381,16 +387,21 @@ try {
   assert(!(await page.locator('#official-rail').isVisible()),'Official panel must hide in OSINT mode');
   assert(mapState.diagnostics?.layer,'Map crime-events layer missing');
   assert(mapState.diagnostics?.source,'Map event GeoJSON source missing');
-  // Optional layers must stay empty until the reader selects them.
-  assert(mapState.diagnostics?.visible==='none','Crime thematic layer must initially be hidden');
+  // The OSINT selection survives visiting the IBAMA area and retains
+  // the user's own independently configurable category filters.
+  assert(mapState.diagnostics?.visible==='visible','OSINT crime layers must initially be visible');
   await page.locator('#layers-toggle').click();
-  assert(await page.locator('.crime-layer-toggle:checked').count()===0,
-    'OSINT map layers unexpectedly enabled after switching data modes');
+  const actualOsintCategories=await page.locator('.crime-layer-toggle').count();
+  assert(await page.locator('.crime-layer-toggle:checked').count()===actualOsintCategories,
+    'The official Nenhuma preset must not clear the OSINT category selection');
   const firstCrime=page.locator('.crime-layer-toggle').first();
+  await firstCrime.uncheck({force:true});
+  assert(await page.locator('.crime-layer-toggle:checked').count()===actualOsintCategories-1,
+    'OSINT categories must remain independently toggleable');
   await firstCrime.check({force:true});
   await page.waitForFunction(()=>window.__amazonMapHealth?.().visible==='visible',null,{timeout:10000});
-  await firstCrime.uncheck({force:true});
-  await page.waitForFunction(()=>window.__amazonMapHealth?.().visible==='none',null,{timeout:10000});
+  assert(await page.locator('.crime-layer-toggle:checked').count()===actualOsintCategories,
+    'Reactivating the OSINT category must restore its selection');
   // Diagnose real geographical overlay controls and remote raster sources.
   const territoryControlNames=await page.locator('input.aux-layer-toggle').evaluateAll(items=>items.map(i=>i.value));
   console.log('OVERLAY_CONTROLS',JSON.stringify(territoryControlNames));

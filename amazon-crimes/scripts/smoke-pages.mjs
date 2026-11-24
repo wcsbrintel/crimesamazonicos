@@ -70,11 +70,24 @@ try {
   // contaminated by administrative records.
   assert(await page.locator('body').getAttribute('data-data-view')==='osint','Default mode must be OSINT');
   assert((await page.locator('.ibama-html-pin').count())===0,'IBAMA markers must not cover OSINT by default');
+  // A fresh visit starts with every optional layer unchecked.
+  await page.locator('#layers-toggle').click();
+  assert(await page.locator('.crime-layer-toggle:checked').count()===0,
+    'Crime thematic layers must start unselected');
+  assert(await page.locator('.aux-layer-toggle:checked').count()===0,
+    'Auxiliary layers must start unselected');
+  assert(await page.locator('.mosaic-layer-toggle:checked').count()===0,
+    'Mosaic layers must start unselected');
+  await page.locator('#layers-close').click();
   await page.locator('#mode-official').click();
   await page.waitForFunction(()=>document.body.dataset.dataView==='official'&&!!document.querySelector('#official-rail:not([hidden])'));
   await page.waitForFunction(()=>Number((document.querySelector('#official-total')?.textContent||'').replace(/[^0-9]/g,''))>0);
   assert(await page.locator('#official-year').inputValue()==='2025','Only verified 2025 IBAMA year available');
   assert(await page.locator('#official-rail').isVisible(),'Official rail not visible');
+  assert(!(await page.locator('#official-kde-toggle').isChecked()),
+    'Hotspots must start disabled');
+  assert(await page.locator('#official-kde-legend').isHidden(),
+    'Hotspots legend should be hidden while disabled');
   assert(!(await page.locator('#event-feed').isVisible()),'OSINT feed should be hidden in official mode');
   // Regression test: official 2025 IBAMA records must be visible, not merely counted.
   await page.waitForFunction(() => window.__amazonMapHealth?.().ibama?.status === 'ready', null, {timeout: 30000});
@@ -161,6 +174,11 @@ try {
   });
   assert(reopened.width==='5px'&&reopened.height==='5px','Point size changed after toggling visibility');
 
+  // Hotspots remain disabled until explicitly selected.
+  const offKde=await page.evaluate(()=>window.__amazonMapHealth?.().ibama?.kde);
+  assert(offKde?.enabled===false && offKde?.visible===false,
+    'KDE should not be active on initial load');
+  await page.locator('#official-kde-toggle').check();
   // Hotspots are a separate count-weighted MapLibre heatmap; points stay unchanged.
   await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.kde?.drawnRecords>0,null,{timeout:20000});
   const initialKde=await page.evaluate(()=>window.__amazonMapHealth?.().ibama?.kde);
@@ -307,9 +325,17 @@ try {
   assert(!(await page.locator('#official-rail').isVisible()),'Official panel must hide in OSINT mode');
   assert(mapState.diagnostics?.layer,'Map crime-events layer missing');
   assert(mapState.diagnostics?.source,'Map event GeoJSON source missing');
-  assert(mapState.diagnostics?.rendered>0,'Crime-event circles not visibly rendered on the map');
-  // Diagnose real geographical overlay controls and remote raster sources.
+  // Optional layers must stay empty until the reader selects them.
+  assert(mapState.diagnostics?.visible==='none','Crime thematic layer must initially be hidden');
   await page.locator('#layers-toggle').click();
+  assert(await page.locator('.crime-layer-toggle:checked').count()===0,
+    'OSINT map layers unexpectedly enabled after switching data modes');
+  const firstCrime=page.locator('.crime-layer-toggle').first();
+  await firstCrime.check({force:true});
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().visible==='visible',null,{timeout:10000});
+  await firstCrime.uncheck({force:true});
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().visible==='none',null,{timeout:10000});
+  // Diagnose real geographical overlay controls and remote raster sources.
   const territoryControlNames=await page.locator('input.aux-layer-toggle').evaluateAll(items=>items.map(i=>i.value));
   console.log('OVERLAY_CONTROLS',JSON.stringify(territoryControlNames));
   for(const key of ['protected_areas','brazil_conservation_units','indigenous_lands','strict_protection','sustainable_use']){

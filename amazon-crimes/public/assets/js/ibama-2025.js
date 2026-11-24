@@ -176,7 +176,11 @@ function groupPopup(group, location){
     const p=f.properties||{};
     return '<button type="button" class="ibama-case-choice" data-choice="'+(current*pageSize+i)+'"><strong>'+html(p.notice||p.id||'IBAMA')+'</strong><small>'+html([p.date,p.municipality,p.uf,p.type].filter(Boolean).join(' · '))+'</small></button>';
   }).join('');
-  popupView.setHTML('<div class="ibama-popup ibama-choices"><strong>'+html(({pt:'Dados Oficiais',en:'Official Data',es:'Datos oficiales'})[lang()])+'</strong><p>'+html(tr.status)+' · IBAMA · 2025 · '+fmt.format(matches.length)+' / '+fmt.format(records.length)+' '+html(tr.count)+'</p><p class="ibama-exact-note">'+html(({pt:'Registros nas mesmas coordenadas geográficas (sem agrupamento por proximidade). Selecione um auto para visualizar.',en:'Records at identical geographic coordinates (no proximity clustering). Select a notice to view.',es:'Registros con coordenadas geográficas idénticas (sin agrupación por proximidad). Seleccione un acta para visualizar.'})[lang()])+'</p><input class="ibama-choice-search" type="search" placeholder="'+html(({pt:'Buscar por auto, data, local ou tipo',en:'Search by notice, date, place or type',es:'Buscar por acta, fecha, lugar o tipo'})[lang()])+'" value="'+html(search)+'" aria-label="Search IBAMA notices"><div class="ibama-choice-list">'+(buttons||'<p>—</p>')+'</div><div class="ibama-choice-pager"><button type="button" data-page="previous" '+(current===0?'disabled':'')+'>←</button><span>'+(current+1)+' / '+totalPages+'</span><button type="button" data-page="next" '+(current>=totalPages-1?'disabled':'')+'>→</button></div></div>');
+  const citySummary=group.kind==='city'&&group.municipality ? group.municipality+' · '+group.uf : '';
+  const groupingHint=group.kind==='city'
+    ? ({pt:'Autos agrupados pelo município e UF informados pelo IBAMA. O marcador representa a média das coordenadas dos registros, não a sede municipal.',en:'Notices grouped by IBAMA municipality and state. The marker uses the mean recorded coordinates, not the municipal centre.',es:'Actas agrupadas por municipio y estado del IBAMA. El marcador utiliza el promedio de coordenadas, no el centro municipal.'})[lang()]
+    : ({pt:'Registros nas mesmas coordenadas geográficas (sem agrupamento por proximidade). Selecione um auto para visualizar.',en:'Records at identical geographic coordinates (no proximity clustering). Select a notice to view.',es:'Registros con coordenadas geográficas idénticas (sin agrupación por proximidad). Seleccione un acta para visualizar.'})[lang()];
+  popupView.setHTML('<div class="ibama-popup ibama-choices"><strong>'+html(({pt:'Dados Oficiais',en:'Official Data',es:'Datos oficiales'})[lang()])+'</strong><p>'+html(citySummary||tr.status)+' · IBAMA · 2025 · '+fmt.format(matches.length)+' / '+fmt.format(records.length)+' '+html(tr.count)+'</p><p class="ibama-exact-note">'+html(groupingHint)+'</p><input class="ibama-choice-search" type="search" placeholder="'+html(({pt:'Buscar por auto, data, local ou tipo',en:'Search by notice, date, place or type',es:'Buscar por acta, fecha, lugar o tipo'})[lang()])+'" value="'+html(search)+'" aria-label="Search IBAMA notices"><div class="ibama-choice-list">'+(buttons||'<p>—</p>')+'</div><div class="ibama-choice-pager"><button type="button" data-page="previous" '+(current===0?'disabled':'')+'>←</button><span>'+(current+1)+' / '+totalPages+'</span><button type="button" data-page="next" '+(current>=totalPages-1?'disabled':'')+'>→</button></div></div>');
   fitOfficialPopup(popupView);
   const root=popupView.getElement();
   root.querySelector('.ibama-choice-search')?.addEventListener('input',e=>{
@@ -191,9 +195,17 @@ function groupPopup(group, location){
     const p=item.properties;
     const backLabel=({pt:'← Voltar à lista',en:'← Back to list',es:'← Volver a la lista'})[lang()];
 
+    if(group.kind==='city'){
+      const [lon,lat]=item.geometry.coordinates;
+      popupView.setLngLat([lon,lat]);
+      map.easeTo({center:[lon,lat],zoom:Math.max(7.2,map.getZoom()),duration:450});
+    }
     popupView.setHTML('<div class="ibama-popup ibama-detailed"><button type="button" class="ibama-choice-back">'+html(backLabel)+'</button>'+recordDetails(p)+'</div>');
     fitOfficialPopup(popupView);
-    popupView.getElement().querySelector('.ibama-choice-back').addEventListener('click',()=>renderPage(current,search));
+    popupView.getElement().querySelector('.ibama-choice-back').addEventListener('click',()=>{
+       if(group.kind==='city')popupView.setLngLat(location);
+       renderPage(current,search);
+    });
   }));
   root.querySelector('[data-page="previous"]')?.addEventListener('click',()=>renderPage(current-1,search));
   root.querySelector('[data-page="next"]')?.addEventListener('click',()=>renderPage(current+1,search));

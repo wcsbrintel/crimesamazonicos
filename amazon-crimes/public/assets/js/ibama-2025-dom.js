@@ -73,9 +73,12 @@ export function createIbamaDomOverlay({map,maplibregl,getFeatures,getEnabledCate
   if(!width||!height)return;
   const exact=exactCoordinateGroups(getFeatures(),getEnabledCategories());
   selectedSites=exact.length;
-  const cityMode=map.getZoom()<IBAMA_CITY_ZOOM;
-  displayMode=cityMode?'city':'exact';
-  const groups=cityMode?municipalityGroups(exact):exact;
+  // SAFETY: municipality-wide centroids may lie kilometres away from any
+  // inspected site. Until geographically representative clusters are audited,
+  // show only factual coordinates at EVERY zoom level.
+  const cityMode=false;
+  displayMode='exact';
+  const groups=exact;
   const wanted=new Set();
   visibleRecords=visibleSites=coincidentSites=cityMarkers=0;
   for(const group of groups){
@@ -143,6 +146,16 @@ export function createIbamaDomOverlay({map,maplibregl,getFeatures,getEnabledCate
   health:()=>({domMarkers:markers.size,pointsVisible,displayMode,cityMarkers,
     cityZoom:IBAMA_CITY_ZOOM,exactLocationsOnMap:visibleSites,
     coincidentLocationsOnMap:coincidentSites,selectedDistinctLocations:selectedSites,
-    recordsInViewport:visibleRecords,enabledCategories:[...getEnabledCategories()]})
+    recordsInViewport:visibleRecords,enabledCategories:[...getEnabledCategories()],
+    // Compare native MapLibre marker pixel to the same coordinates projected
+    // by MapLibre itself; this catches CSS positioning regressions.
+    alignment:[...markers.values()].slice(0,18).map(({group,button})=>{
+      const canvas=map.getCanvas().getBoundingClientRect();
+      const actual=button.getBoundingClientRect();
+      const projected=map.project([group.lon,group.lat]);
+      return {key:group.key,lon:group.lon,lat:group.lat,
+        dx:Math.round((actual.left+actual.width/2-canvas.left-projected.x)*10)/10,
+        dy:Math.round((actual.top+actual.height/2-canvas.top-projected.y)*10)/10};
+    })})
  };
 }

@@ -86,35 +86,31 @@ try {
   console.log('IBAMA 2025 VISIBLE POINTS:',JSON.stringify(ibamaHealth));
   assert(ibamaHealth.features > 0, 'IBAMA official source has no valid 2025 records');
   assert(ibamaHealth.domNodes > 0, 'IBAMA markers are not visible on the map');
-  const cityMode=ibamaHealth.dom.displayMode==='city';
-  const cityCount=await page.locator('.ibama-html-pin.ibama-city-group').count();
-  console.log('IBAMA CITY ZOOM MODE',JSON.stringify({zoom:mapState.diagnostics.zoom,cityMode,cityCount}));
-  if(cityMode){
-    assert(cityCount>0,'Low zoom must show city-level groups for the official IBAMA data');
-    const city=page.locator('.ibama-html-pin.ibama-city-group').first();
-    const cityInfo=await city.evaluate(el=>({title:el.title,count:el.querySelector('.ibama-city-total')?.textContent,
-      name:el.querySelector('.ibama-city-label')?.textContent,width:parseFloat(getComputedStyle(el).width)}));
-    assert(cityInfo.name&&cityInfo.count&&cityInfo.width>=20,
-       'City group must show documented city name and number of autos');
-    await city.evaluate(el=>el.click());
-    await page.waitForFunction(()=>document.querySelectorAll('.ibama-case-choice').length>0,null,{timeout:7000});
-    assert(await page.locator('.ibama-exact-note').textContent().then(t=>/municipality|município|municipio/.test(t)),
-      'City group must explain municipality-level aggregation');
-    await page.locator('.ibama-official-popup .maplibregl-popup-close-button').click({force:true});
+  // Geospatial safety: low zoom currently uses only factual source
+  // coordinates. Municipality averages must never be displayed as incidents.
+  assert(ibamaHealth.dom.displayMode==='exact','Official IBAMA markers must use source coordinates at every zoom');
+  assert(ibamaHealth.dom.cityMarkers===0,'Derived city centroids must not be rendered');
+  const alignment=ibamaHealth.dom.alignment||[];
+  console.log('IBAMA PIXEL ALIGNMENT:',JSON.stringify(alignment));
+  assert(alignment.length>0,'No official markers available for spatial alignment check');
+  for(const point of alignment){
+    assert(Math.abs(point.dx)<=4 && Math.abs(point.dy)<=4,
+      'Official marker shifted from its MapLibre-projected geographic location: '+
+      JSON.stringify(point));
   }
-  const groupInvariant=await page.evaluate(async()=>{
-    const module=await import(new URL('./assets/js/ibama-2025-dom.js?v=20261124-city1',document.baseURI).href);
+  const coordinateInvariant=await page.evaluate(async()=>{
+    const module=await import(new URL('./assets/js/ibama-2025-dom.js?v=20261124-geo-fix1',document.baseURI).href);
     const example=(lon,lat,city,uf)=>({type:'Feature',geometry:{type:'Point',coordinates:[lon,lat]},
       properties:{category:'mining',categories:['mining'],municipality:city,uf}});
     const exact=module.exactCoordinateGroups([example(-60,-3,'Manaus','AM'),
-      example(-60.2,-3.1,'Manaus','AM'),example(-60,-3,'Manaus','AM'),
-      example(-60.2,-3.1,'Manacapuru','AM')],new Set(['mining']));
-    const city=module.municipalityGroups(exact);
-    return {exact:exact.length,city:city.length,manaus:city.find(g=>g.municipality==='Manaus')?.members.length,
-      totals:city.reduce((n,g)=>n+g.members.length,0)};
+      example(-60.2,-3.1,'Manaus','AM'),example(-60,-3,'Manaus','AM')],new Set(['mining']));
+    return {sites:exact.length,coordinates:exact.map(g=>[g.lon,g.lat]),total:exact.reduce((n,g)=>n+g.members.length,0)};
   });
-  assert(groupInvariant.exact===2&&groupInvariant.city===2&&groupInvariant.manaus===3&&groupInvariant.totals===4,
-    'Municipality groups must preserve every record while exact coordinate groups stay distinct');
+  assert(coordinateInvariant.sites===2 && coordinateInvariant.total===3,
+    'Distinct IBAMA source coordinates were lost');
+  assert(coordinateInvariant.coordinates.some(c=>c[0]===-60&&c[1]===-3) &&
+    coordinateInvariant.coordinates.some(c=>c[0]===-60.2&&c[1]===-3.1),
+    'Official markers must retain source lon/lat precisely');
   const markerStyleAudit = await page.evaluate(() => {
     const pins = [...document.querySelectorAll('.ibama-html-pin')];
     const sample = [pins.find(el=>!el.classList.contains('ibama-city-group')), pins.find(el=>el.classList.contains('ibama-html-cluster')&&!el.classList.contains('ibama-city-group'))].filter(Boolean);

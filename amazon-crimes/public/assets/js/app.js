@@ -39,9 +39,10 @@ const htmlMarkerLayerIds = new Set(['weather_stations', 'river_gauges', 'armed_g
 
 // Layer state is intentionally session-scoped. Persisting visibility caused stale/empty
 // layer selections to survive reloads and make valid events disappear from the map.
-// Start with no optional crime layers selected. Users explicitly enable
-// the thematic categories they want to see; this selection is session-only.
-const activeCrimeLayers = new Set();
+// The OSINT event categories must start enabled so the canonical event map
+// displays normally. These selections are separate from the official IBAMA
+// infraction categories, which intentionally start with "Nenhuma".
+const activeCrimeLayers = new Set(crimeTypes);
 const activeAuxLayers = new Set();
 const activeMosaics = new Set();
 const mosaicErrors = new Map();

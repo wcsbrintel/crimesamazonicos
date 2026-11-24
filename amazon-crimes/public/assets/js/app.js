@@ -294,6 +294,14 @@ function eventsGeoJson() {
 // symbol/circle layers fail to reappear after a globe or basemap style change.
 function syncEventHtmlMarkers() {
   if (!map || !maplibregl?.Marker) return;
+  // OSINT markers belong exclusively to the OSINT view. Remove them from
+  // MapLibre itself when opening official data: CSS hiding alone allowed a
+  // visible flash during style/projection rebuilds and delayed repaints.
+  if (dataView !== 'osint') {
+    for (const entry of eventHtmlMarkers.values()) entry.marker.remove();
+    eventHtmlMarkers.clear();
+    return;
+  }
   const wanted = new Set();
   for (const event of filteredEvents) {
     const category = event.primary_crime_type || 'OTHER_ENVIRONMENTAL_CRIME';
@@ -454,7 +462,7 @@ function rebuildMapData() {
     colorMatch.push('#7f8c8d');
     map.addLayer({
       id: 'crime-events', type: 'circle', source: 'events',
-      layout: { visibility: activeCrimeLayers.size ? 'visible' : 'none' },
+      layout: { visibility: dataView === 'osint' && activeCrimeLayers.size ? 'visible' : 'none' },
       paint: {
         // MapLibre requires the `zoom` expression to be the direct input of a
         // top-level interpolate/step expression. Nesting zoom interpolations inside
@@ -1303,6 +1311,14 @@ function changeDataView(view) {
   const next=view==='official'?'official':'osint';
   dataView=next;
   document.body.dataset.dataView=next;
+  // Hide native OSINT circles and detach OSINT DOM pins synchronously,
+  // BEFORE activating or redrawing the official IBAMA view.
+  if (next === 'official' && map) {
+    syncEventHtmlMarkers();
+    if (map.getLayer('crime-events')) {
+      map.setLayoutProperty('crime-events','visibility','none');
+    }
+  }
   const rail=document.getElementById('official-rail');
   if(rail)rail.hidden=next!=='official';
   const caption=document.getElementById('official-map-caption');

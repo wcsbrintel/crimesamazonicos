@@ -106,7 +106,8 @@ body[data-data-view="official"] .ibama-html-pin.ibama-city-group {
   height:var(--city-size,24px) !important;
   min-width:var(--city-size,24px) !important;
   min-height:var(--city-size,24px) !important;
-  position:relative;
+  /* The marker itself must remain absolutely positioned by MapLibre. */
+  position:absolute !important;
   border-radius:50% !important;
   background:#292e30 !important;
   color:#fff !important;
@@ -147,4 +148,14 @@ body[data-data-view="official"] .ibama-html-pin.ibama-city-group:hover,
 body[data-data-view="official"] .ibama-html-pin.ibama-city-group:focus-visible {
   z-index:11;
   background:#080a0b !important;
+}
+
+/* Invariant: native MapLibre positioning MUST win over thematic styling. */
+.maplibregl-marker.ibama-html-pin,
+body[data-data-view="official"] .maplibregl-marker.ibama-html-pin,
+body[data-data-view="official"] .maplibregl-marker.ibama-html-pin.ibama-city-group {
+  position:absolute !important;
+  left:0 !important;
+  top:0 !important;
+  margin:0 !important;
 }

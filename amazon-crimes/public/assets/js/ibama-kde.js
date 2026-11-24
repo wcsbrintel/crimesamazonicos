@@ -1,28 +1,18 @@
-/* IBAMA administrative-record Hotspots / Gaussian KDE (MapLibre).
- *
- * Visual grammar follows the original seizure-hotspots.js in
- * wcsbrintel/iwt_globalobservatory: same zoom-adaptive kernel radius,
- * zoom intensity, alpha and blue > yellow > orange > red ramp.
- *
- * Unlike the wildlife site's relative scale, this implementation uses a
- * FIXED reference of 100 official notices in the same KDE kernel. Each
- * distinct verified auto contributes one unit; co-located autos are grouped
- * into a single GeoJSON feature with event_count=N, not counted as one.
- * There is no filter-dependent maximum normalization: two notices never
- * acquire the same color merely because they are the only two selected.
+/* The exact MapLibre heatmap rendering used by the global wildlife
+ * trafficking observatory (seizure-hotspots.js): kernel radius, zoom
+ * intensity, opacity, colours and unnormalised event_count weights.
+ * Each filtered auto contributes one unit, with exact-coordinate
+ * duplicates aggregated as a single weighted KDE source feature.
+ * Heat intensity is RELATIVE to the kernel neighbourhood as in
+ * the original; it is not an absolute incident-rate estimate.
  */
-export const KDE_REFERENCE_COUNT = 100;
+export const KDE_REFERENCE_COUNT = null;
+export const KDE_PALETTE_VERSION = 'wildlife-exact-v3';
 export const KDE_RADIUS_PIXELS = Object.freeze([12,22,38,62]);
-export const KDE_PALETTE_VERSION = 'wildlife-reference-absolute-v2';
 const SOURCE='official-ibama-kde-records';
 const LAYER='official-ibama-kde-heatmap';
 const EMPTY={type:'FeatureCollection',features:[]};
 
-/* One kernel feature per EXACT georeferenced location, as in the global
- * Observatory. The record counts survive grouping and are summed in
- * heatmap-weight. Coordinate values are never pixel-rounded or clustered
- * by proximity. This is independent of marker visibility.
- */
 export function buildIbamaDensity(records){
  const sites=new Map();
  let n=0;
@@ -47,22 +37,13 @@ export function buildIbamaDensity(records){
  }};
 }
 const PAINT={
- 'heatmap-weight':['/', ['get','event_count'], KDE_REFERENCE_COUNT],
+ 'heatmap-weight':['get','event_count'],
  'heatmap-intensity':['interpolate',['linear'],['zoom'],0,0.85,8,1.35],
  'heatmap-radius':['interpolate',['linear'],['zoom'],0,12,3,22,7,38,12,62],
  'heatmap-opacity':0.83,
- // Same blue/yellow/orange/red hues used by the wildlife-trafficking map.
- // Faint extra blue stops retain a readable trace of low-volume selections
- // without mapping their local maximum to red.
  'heatmap-color':['interpolate',['linear'],['heatmap-density'],
-   0,'rgba(29,185,220,0)',
-   0.015,'rgba(33,166,217,0.14)',
-   0.04,'rgba(33,166,217,0.30)',
-   0.12,'rgba(33,166,217,0.45)',
-   0.30,'#1684c5',
-   0.50,'#ffe65b',
-   0.72,'#ff8f39',
-   1,'#e63832']
+  0,'rgba(29,185,220,0)',0.12,'rgba(33,166,217,0.45)',
+  0.3,'#1684c5',0.5,'#ffe65b',0.72,'#ff8f39',1,'#e63832']
 };
 export function createIbamaKde({map}){
  let enabled=false,official=false,selected=[],lastCount=-1,lastLocations=0,errors=0;
@@ -120,6 +101,8 @@ export function createIbamaKde({map}){
    drawnLocations:visible()?lastLocations:0,
    layer:!!map?.getLayer?.(LAYER),source:!!map?.getSource?.(SOURCE),
    referenceCount:KDE_REFERENCE_COUNT,
+   weighting:'actual-auto-count',
+   scale:'relative',
    radiusPx:KDE_RADIUS_PIXELS,
    palette:KDE_PALETTE_VERSION,
    errors

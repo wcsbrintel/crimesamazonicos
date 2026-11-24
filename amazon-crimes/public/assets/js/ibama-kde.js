@@ -1,14 +1,17 @@
-/* The exact MapLibre heatmap rendering used by the global wildlife
- * trafficking observatory (seizure-hotspots.js): kernel radius, zoom
- * intensity, opacity, colours and unnormalised event_count weights.
- * Each filtered auto contributes one unit, with exact-coordinate
- * duplicates aggregated as a single weighted KDE source feature.
- * Heat intensity is RELATIVE to the kernel neighbourhood as in
- * the original; it is not an absolute incident-rate estimate.
+/* IBAMA 2025 Hotspots: fixed, count-calibrated Gaussian KDE.
+ * Each filtered administrative notice contributes one unit. Autos with
+ * numerically identical source coordinates are aggregated with weight equal
+ * to their count; no other spatial clustering or re-centering is performed.
+ * A solitary auto has the SAME heatmap intensity regardless of how many
+ * other autos are selected elsewhere. A low-volume site stays in the
+ * blue range, even if it is the only selected site. Only overlapping
+ * kernels with substantially more records reach yellow/orange/red.
+ * This deliberately departs from the GLOBAL OBSERVATORY's uncalibrated
+ * heatmap-weight, which can saturate isolated official sites red.
  */
-export const KDE_REFERENCE_COUNT = null;
-export const KDE_PALETTE_VERSION = 'wildlife-exact-v3';
-export const KDE_RADIUS_PIXELS = Object.freeze([12,22,38,62]);
+export const KDE_REFERENCE_COUNT=25;
+export const KDE_PALETTE_VERSION='ibama-count-calibrated-v4';
+export const KDE_RADIUS_PIXELS=Object.freeze([12,22,38,62]);
 const SOURCE='official-ibama-kde-records';
 const LAYER='official-ibama-kde-heatmap';
 const EMPTY={type:'FeatureCollection',features:[]};
@@ -36,14 +39,23 @@ export function buildIbamaDensity(records){
   }))
  }};
 }
-const PAINT={
- 'heatmap-weight':['get','event_count'],
- 'heatmap-intensity':['interpolate',['linear'],['zoom'],0,0.85,8,1.35],
+// MapLibre heatmap-density is the sum of weighted Gaussian kernels, capped
+// to [0,1] for the colour lookup. The weight scale is FIXED across all
+// filters and zoom levels; never normalise by selection size or tile maximum.
+export const KDE_PAINT={
+ 'heatmap-weight':['/', ['get','event_count'], KDE_REFERENCE_COUNT],
+ 'heatmap-intensity':1,
  'heatmap-radius':['interpolate',['linear'],['zoom'],0,12,3,22,7,38,12,62],
  'heatmap-opacity':0.83,
  'heatmap-color':['interpolate',['linear'],['heatmap-density'],
-  0,'rgba(29,185,220,0)',0.12,'rgba(33,166,217,0.45)',
-  0.3,'#1684c5',0.5,'#ffe65b',0.72,'#ff8f39',1,'#e63832']
+  0,'rgba(29,185,220,0)',
+  0.008,'rgba(33,166,217,0.12)',
+  0.025,'rgba(33,166,217,0.42)',
+  0.07,'rgba(22,132,197,0.58)',
+  0.12,'rgba(22,132,197,0.72)',
+  0.25,'#ffe65b',
+  0.5,'#ff8f39',
+  0.85,'#e63832']
 };
 export function createIbamaKde({map}){
  let enabled=false,official=false,selected=[],lastCount=-1,lastLocations=0,errors=0;
@@ -58,7 +70,7 @@ export function createIbamaKde({map}){
     map.addLayer({
      id:LAYER,type:'heatmap',source:SOURCE,
      layout:{visibility:visible()?'visible':'none'},
-     paint:PAINT
+     paint:KDE_PAINT
     },before);
     lastCount=-1;
    }
@@ -102,7 +114,7 @@ export function createIbamaKde({map}){
    layer:!!map?.getLayer?.(LAYER),source:!!map?.getSource?.(SOURCE),
    referenceCount:KDE_REFERENCE_COUNT,
    weighting:'actual-auto-count',
-   scale:'relative',
+   scale:'absolute-per-kernel',
    radiusPx:KDE_RADIUS_PIXELS,
    palette:KDE_PALETTE_VERSION,
    errors

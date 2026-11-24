@@ -102,44 +102,45 @@ function closeOfficialPopup(){
  }
 }
 function fitOfficialPopup(popupView) {
- // Use the actual map viewport rather than the browser viewport; the
- // map shares horizontal space with the filters sidebar.
- if(!popupView?.getElement?.()) return;
- const mapEl=map.getContainer();
- const content=popupView.getElement()?.querySelector('.maplibregl-popup-content');
- const area=mapEl.getBoundingClientRect();
- if(!content || !area.width || !area.height) return;
- const availableHeight=Math.max(155,Math.min(420,area.height-58));
- content.style.maxHeight=availableHeight+'px';
+ // Normal-screen mode is often scrolled: use the INTERSECTION of the map
+ // and the actual browser viewport, not the entire map canvas. A card
+ // placed beneath the fold must never be mistaken for fully visible.
+ if(activeOfficialPopup!==popupView || !popupView?.getElement?.())return;
+ const mapRect=map.getContainer().getBoundingClientRect();
+ const left=Math.max(10,mapRect.left+12),right=Math.min(window.innerWidth-10,mapRect.right-12);
+ const top=Math.max(10,mapRect.top+12),bottom=Math.min(window.innerHeight-10,mapRect.bottom-12);
+ const width=right-left,height=bottom-top;
+ if(width<100 || height<100)return;
+ const element=popupView.getElement();
+ const content=element.querySelector('.maplibregl-popup-content');
+ if(!content)return;
+ // Leave room for the MapLibre arrow, close button and margins; long
+ // narratives remain available by scrolling inside the card.
+ const maxWidth=Math.max(120,Math.min(430,width-28));
+ const maxHeight=Math.max(85,Math.min(520,height-52));
+ element.style.maxWidth=maxWidth+'px';
+ content.style.width='100%';
+ content.style.boxSizing='border-box';
+ content.style.maxHeight=maxHeight+'px';
  content.style.overflowY='auto';
- // Every newly opened case or case-selection view starts at its header.
- // Only the reader can scroll down afterwards.
+ content.style.overscrollBehavior='contain';
  content.scrollTop=0;
  const inner=content.querySelector('.ibama-detailed, .ibama-choices');
  if(inner)inner.scrollTop=0;
- // MapLibre may choose a different anchor after setHTML. Recheck only
- // after layout is complete and shift the camera if the card is clipped.
- const reposition=()=>{
-   if(activeOfficialPopup!==popupView || !popupView.getElement()?.isConnected)return;
-   const popupRect=popupView.getElement().getBoundingClientRect();
-   const region=mapEl.getBoundingClientRect();
-   const margin=14;
-   let shiftX=0,shiftY=0;
-   if(popupRect.left<region.left+margin)shiftX=region.left+margin-popupRect.left;
-   else if(popupRect.right>region.right-margin)shiftX=region.right-margin-popupRect.right;
-   if(popupRect.top<region.top+margin)shiftY=region.top+margin-popupRect.top;
-   else if(popupRect.bottom>region.bottom-margin)shiftY=region.bottom-margin-popupRect.bottom;
-   if(Math.abs(shiftX)>1||Math.abs(shiftY)>1){
-     // Camera offset has the opposite sign to the desired screen translation.
-     map.panBy([-shiftX,-shiftY],{duration:250});
-   }
+ const centerPopup=()=>{
+  if(activeOfficialPopup!==popupView || !element.isConnected)return;
+  const popupRect=element.getBoundingClientRect();
+  const desiredX=(left+right)/2,desiredY=(top+bottom)/2;
+  const dx=desiredX-(popupRect.left+popupRect.width/2);
+  const dy=desiredY-(popupRect.top+popupRect.height/2);
+  // Move the camera rather than changing marker transforms. Every source
+  // coordinate stays georeferenced and the popup follows its MapLibre anchor.
+  if(Math.abs(dx)>5||Math.abs(dy)>5)
+   map.panBy([-dx,-dy],{duration:230});
  };
- requestAnimationFrame(()=>requestAnimationFrame(()=>{
-   const current=popupView.getElement()?.querySelector('.maplibregl-popup-content');
-   if(current && activeOfficialPopup===popupView)current.scrollTop=0;
-   reposition();
- }));
+ requestAnimationFrame(()=>requestAnimationFrame(centerPopup));
 }
+
 function createOfficialPopup(location,maxWidth='450px'){
  closeOfficialPopup();
  const pop=new lib.Popup({
@@ -156,6 +157,11 @@ function focusOfficialLocation(location){
  // Always follow the clicked source coordinate, never a municipality centroid.
  // Keep existing zoom if already closer; do not zoom out on another click.
  map.easeTo({center:[lng,lat],zoom:Math.max(map.getZoom(),8.5),duration:450});
+ // Refit after the zoom animation, since opening the card and moving the
+ // camera happen in the same click handler.
+ map.once('moveend',()=>{
+  if(activeOfficialPopup)fitOfficialPopup(activeOfficialPopup);
+ });
 }
 function openOfficialRecord(props,location){
  focusOfficialLocation(location);

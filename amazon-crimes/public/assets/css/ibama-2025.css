@@ -94,3 +94,57 @@ body[data-data-view="official"] .ibama-official-popup .ibama-choices {
 .official-kde-scale { display:flex; justify-content:space-between; gap:9px; font-size:9px; margin-top:6px; color:var(--muted); }
 
 .official-kde-separator{height:1px;background:var(--line);margin:10px 0;}
+
+/* Global Role-inspired monochrome point cloud (IBAMA only).
+   Retain 5px dot cores and the original 12px hit targets. Municipality
+   summaries appear only at reduced map zoom; exact coordinates resume on zoom. */
+body[data-data-view="official"] .ibama-html-pin:not(.ibama-city-group)::after {
+  background:var(--ibama-color,#252729) !important;
+}
+body[data-data-view="official"] .ibama-html-pin.ibama-city-group {
+  width:var(--city-size,24px) !important;
+  height:var(--city-size,24px) !important;
+  min-width:var(--city-size,24px) !important;
+  min-height:var(--city-size,24px) !important;
+  position:relative;
+  border-radius:50% !important;
+  background:#292e30 !important;
+  color:#fff !important;
+  font-size:11px !important;
+  line-height:1 !important;
+  font-weight:800 !important;
+  border:1px solid #fff !important;
+  box-shadow:0 0 0 1px rgba(18,22,23,.78) !important;
+  overflow:visible !important;
+  z-index:2;
+}
+body[data-data-view="official"] .ibama-html-pin.ibama-city-group::after {
+  display:none !important;
+}
+body[data-data-view="official"] .ibama-city-total {
+  display:block;
+  color:#fff;
+  font-size:10px;
+  font-variant-numeric:tabular-nums;
+  font-weight:800;
+  line-height:1;
+}
+body[data-data-view="official"] .ibama-city-label {
+  position:absolute;
+  left:calc(100% + 6px);
+  top:50%;
+  transform:translateY(-50%);
+  color:#202325;
+  white-space:nowrap;
+  text-align:left;
+  text-shadow:-1px -1px #fff,1px -1px #fff,-1px 1px #fff,1px 1px #fff,0 1px 3px #fff;
+  font-size:10px;
+  line-height:1.2;
+  font-weight:700;
+  pointer-events:none;
+}
+body[data-data-view="official"] .ibama-html-pin.ibama-city-group:hover,
+body[data-data-view="official"] .ibama-html-pin.ibama-city-group:focus-visible {
+  z-index:11;
+  background:#080a0b !important;
+}

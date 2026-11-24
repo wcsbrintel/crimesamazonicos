@@ -43,6 +43,7 @@ export function createIbamaDomOverlay({
   const markers = new Map();
   let timer = null;
   let installed = false;
+  let pointsVisible = true;
   let visibleRecords = 0;
   let visibleSites = 0;
   let coincidentSites = 0;
@@ -65,6 +66,13 @@ export function createIbamaDomOverlay({
 
   function render() {
     if (!map || !maplibregl?.Marker) return;
+    if (!pointsVisible) {
+      clear();
+      visibleRecords=0;
+      visibleSites=0;
+      coincidentSites=0;
+      return;
+    }
     const canvas = map.getCanvas();
     const width = canvas?.clientWidth || 0;
     const height = canvas?.clientHeight || 0;
@@ -153,8 +161,10 @@ export function createIbamaDomOverlay({
   }
   return {
     start, schedule, clear,
+    setVisible(next){pointsVisible=Boolean(next);if(!pointsVisible)clear();schedule();},
     health: () => ({
       domMarkers:markers.size,
+      pointsVisible,
       exactLocationsOnMap:visibleSites,
       coincidentLocationsOnMap:coincidentSites,
       selectedDistinctLocations:selectedSites,

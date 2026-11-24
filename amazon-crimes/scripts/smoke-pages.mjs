@@ -262,6 +262,28 @@ try {
       'Return to exact-coordinate selection failed');
     await page.keyboard.press('Escape');
   }
+  // Clicking a true source coordinate must zoom toward the incident, never a
+  // municipality average. The focused card still starts at its heading.
+  await page.evaluate(()=>{
+    document.querySelector('.ibama-html-pin')?.click();
+  });
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().zoom>=8.45,null,{timeout:8000});
+  await page.waitForTimeout(550);
+  const clicked=await page.evaluate(()=>({
+    zoom:window.__amazonMapHealth?.().zoom,
+    center:window.__amazonMapHealth?.().center,
+    alignment:window.__amazonMapHealth?.().ibama?.dom?.alignment||[],
+    popup:!!document.querySelector('.ibama-official-popup'),
+    scrollTop:document.querySelector('.ibama-official-popup .maplibregl-popup-content')?.scrollTop
+  }));
+  console.log('IBAMA CLICK GEOLOCATION:',JSON.stringify(clicked));
+  assert(clicked.popup,'Clicking an IBAMA point did not open a card');
+  assert(clicked.scrollTop===0,'Official popup did not start at its heading');
+  for(const marker of clicked.alignment){
+    assert(Math.abs(marker.dx)<=4&&Math.abs(marker.dy)<=4,
+      'Official point was displaced after zoom: '+JSON.stringify(marker));
+  }
+  await page.keyboard.press('Escape');
   // Official thematic filter, state filter and text search are applied to both
   // the map and the list through one selected-record collection.
   await page.locator('#official-select-none').click();

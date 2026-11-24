@@ -224,6 +224,12 @@ export function installIbama2025(theMap,theLibrary,languageGetter){
  kdeOverlay.setEnabled(Boolean(densityToggle?.checked));
  domOverlay=createIbamaDomOverlay({map,maplibregl:lib,getFeatures:()=>officialMode?officialExplorer.selected():[],getEnabledCategories:()=>officialMode?officialExplorer.enabled():emptyEnabled,getLanguage:()=>lang(),onSingle:popup,onGroup:groupPopup});
  domOverlay.start();
+ const pointsToggle=document.getElementById('official-points-toggle');
+ pointsToggle?.addEventListener('change',()=>{
+   domOverlay?.setVisible(officialMode && Boolean(pointsToggle.checked));
+   if(!pointsToggle.checked)closeOfficialPopup();
+ });
+ domOverlay.setVisible(false);
  map.on('style.load',install);
  map.on('load',install);
  map.on('click',e=>{
@@ -251,6 +257,6 @@ export function setIbamaOfficialMode(next) {
  officialExplorer?.setMode(officialMode?'official':'osint');
  kdeOverlay?.setOfficial(officialMode);
  updateVisibility();
- domOverlay?.schedule();
+ domOverlay?.setVisible(officialMode && Boolean(document.getElementById('official-points-toggle')?.checked));
 }
 export function ibama2025Health(){return {status:loadState,features:features.length,enabled:[...enabled],stats:snapshotStats,layer:!!map?.getLayer?.(id),dom:domOverlay?.health()||null,explorer:officialExplorer?.status()||null,kde:kdeOverlay?.health()||null};}

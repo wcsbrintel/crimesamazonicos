@@ -1,7 +1,7 @@
 // Independent 2025 IBAMA administrative layer. Does not modify canonical OSINT events.
 import { createIbamaDomOverlay } from './ibama-2025-dom.js?v=20261124-geo-fix1';
-import { createOfficialExplorer } from './official-explorer.js?v=20261124-city1';
-import { createIbamaKde } from './ibama-kde.js?v=20261124-exact-kde1';
+import { createOfficialExplorer } from './official-explorer.js?v=20261124-kde-calibrated1';
+import { createIbamaKde } from './ibama-kde.js?v=20261124-kde-calibrated1';
 const TYPES = [
   ['deforestation','#da7048',{pt:'Desmatamento',en:'Deforestation',es:'Deforestación'}],
   ['logging','#aa814b',{pt:'Madeira e exploração florestal',en:'Logging and forest products',es:'Madera y explotación forestal'}],

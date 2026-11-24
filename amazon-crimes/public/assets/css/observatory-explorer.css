@@ -69,6 +69,18 @@ body[data-data-view="official"] .map-wrap { min-height:clamp(590px, 75vh, 980px)
 .official-filter-title strong { font-size:12px; }
 .official-filter-title>div { display:flex; gap:6px; }
 .official-filter-title button { border:1px solid var(--line); border-radius:999px; color:var(--text); background:var(--surface-2); padding:5px 9px; font-size:10px; }
+.official-filter-title button.active,
+.official-filter-title button[aria-pressed="true"] {
+  color:var(--text);
+  border-color:var(--green);
+  background:color-mix(in srgb,var(--green) 13%,var(--surface-2));
+  font-weight:750;
+}
+.official-filter-title button:focus-visible {
+  outline:2px solid var(--green);
+  outline-offset:2px;
+}
+
 .official-category-list { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 .official-category-row { border:1px solid var(--line); background:var(--surface-2); border-radius:999px; display:flex; align-items:center; gap:6px; padding:6px 7px; min-width:0; cursor:pointer; color:var(--text); font-size:10px; line-height:1.2; }
 .official-category-row.selected { border-color:color-mix(in srgb,var(--green) 45%,var(--line)); background:color-mix(in srgb,var(--green) 7%,var(--surface-2)); }

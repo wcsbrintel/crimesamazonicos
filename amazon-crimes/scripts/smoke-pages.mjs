@@ -89,14 +89,14 @@ try {
   await page.waitForFunction(()=>document.body.dataset.dataView==='official'&&!!document.querySelector('#official-rail:not([hidden])'));
   await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.status==='ready',null,{timeout:30000});
   assert(await page.locator('#official-year').inputValue()==='2025','Only verified 2025 IBAMA year available');
-  assert(await page.locator('.official-category-toggle:checked').count()===0,
-    'Official infraction categories must initially be Nenhuma');
-  assert(await page.locator('#official-select-none').getAttribute('aria-pressed')==='true',
-    'Nenhuma must be the active official category preset');
-  assert((await page.locator('#official-total').textContent()).replace(/[^0-9]/g,'')==='0',
-    'No official records should display until a category is selected');
-  assert((await page.locator('.ibama-html-pin').count())===0,
-    'Official records should not appear before a category is selected');
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.status==='ready'
+    && window.__amazonMapHealth?.().ibama?.explorer?.visible>0,null,{timeout:30000});
+  assert(await page.locator('.official-category-toggle:checked').count()===1,
+    'Desmatamento must be the only initially selected official infraction category');
+  assert(await page.locator('input.official-category-toggle[value="deforestation"]').isChecked(),
+    'Desmatamento must be selected by default in official IBAMA');
+  assert((await page.locator('#official-category-count').textContent()).trim()==='1',
+    'Official selected category total must be one');
   await page.locator('#official-select-all').click();
   await page.waitForFunction(()=>Number((document.querySelector('#official-total')?.textContent||'').replace(/[^0-9]/g,''))>0);
   assert(await page.locator('#official-rail').isVisible(),'Official rail not visible');
@@ -376,11 +376,12 @@ try {
   await page.locator('#official-state').selectOption('PA');
   await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.state==='PA');
   await page.locator('#official-reset').click();
-  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.visible===0);
-  assert(await page.locator('.official-category-toggle:checked').count()===0,
-    'Reset must return official infraction types to Nenhuma');
-  assert(await page.locator('#official-select-none').getAttribute('aria-pressed')==='true',
-    'Nenhuma must remain active after resetting');
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.state==='all'
+    && window.__amazonMapHealth?.().ibama?.explorer?.visible>0);
+  assert(await page.locator('.official-category-toggle:checked').count()===1,
+    'Reset must select only Desmatamento');
+  assert(await page.locator('input.official-category-toggle[value="deforestation"]').isChecked(),
+    'Reset must restore Desmatamento as the official default');
   await page.locator('#mode-osint').click();
   await page.waitForFunction(()=>document.body.dataset.dataView==='osint');
   await page.waitForTimeout(300);

@@ -1,90 +1,128 @@
-/* IBAMA 2025 - Gaussian KDE with absolute, comparable count scale.
- * A record contributes exactly 1/100 to the kernel-density field before
- * Gaussian smoothing. The source contains one feature per administrative
- * notice, NOT one per unique coordinate, so coincident notices remain
- * separately weighted. Colours are fixed at absolute count-equivalent
- * thresholds: selecting 2 notices cannot renormalise into a red hotspot.
+/* IBAMA administrative-record Hotspots / Gaussian KDE (MapLibre).
+ *
+ * Visual grammar follows the original seizure-hotspots.js in
+ * wcsbrintel/iwt_globalobservatory: same zoom-adaptive kernel radius,
+ * zoom intensity, alpha and blue > yellow > orange > red ramp.
+ *
+ * Unlike the wildlife site's relative scale, this implementation uses a
+ * FIXED reference of 100 official notices in the same KDE kernel. Each
+ * distinct verified auto contributes one unit; co-located autos are grouped
+ * into a single GeoJSON feature with event_count=N, not counted as one.
+ * There is no filter-dependent maximum normalization: two notices never
+ * acquire the same color merely because they are the only two selected.
  */
 export const KDE_REFERENCE_COUNT = 100;
-export const KDE_RADIUS_KM = 15;
-const SOURCE = 'official-ibama-kde-records';
-const LAYER = 'official-ibama-kde-heatmap';
-const stops = [
-  0, 'rgba(0,0,0,0)',
-  0.008, 'rgba(48,118,205,0)',
-  0.012, 'rgba(48,118,205,0.43)',
-  0.04, 'rgba(49,156,211,0.54)',
-  0.10, 'rgba(85,205,173,0.64)',
-  0.20, 'rgba(231,226,89,0.70)',
-  0.40, 'rgba(244,166,50,0.77)',
-  0.70, 'rgba(225,90,47,0.83)',
-  1, 'rgba(181,32,38,0.87)'
-];
+export const KDE_RADIUS_PIXELS = Object.freeze([12,22,38,62]);
+export const KDE_PALETTE_VERSION = 'wildlife-reference-absolute-v2';
+const SOURCE='official-ibama-kde-records';
+const LAYER='official-ibama-kde-heatmap';
 const EMPTY={type:'FeatureCollection',features:[]};
-export function createIbamaKde({map}) {
-  let enabled=false, official=false, selected=[], lastCount=-1, errors=0;
-  let installed=false, updateTimer=null;
-  const rawFeature=f=>({type:'Feature',geometry:f.geometry,properties:{}});
-  // The bandwidth is approximately 15 km near the equator through zoom 10.
-  // Screen radius is capped at detailed street zooms so GPU kernels remain
-  // practical and dots keep their local investigative utility.
-  const radius=['interpolate',['exponential',2],['zoom'],
-    3,1,5,3.4,6,6.8,7,13.6,8,27.2,9,54.4,10,108.8,11,160,15,160];
-  const paint={
-    'heatmap-weight':1/KDE_REFERENCE_COUNT,
-    'heatmap-intensity':1,
-    'heatmap-radius':radius,
-    'heatmap-opacity':0.78,
-    'heatmap-color':['interpolate',['linear'],['heatmap-density'],...stops]
-  };
-  const visible=()=>enabled&&official;
-  function ensure() {
-    if(!map?.isStyleLoaded?.())return false;
-    try {
-      if(!map.getSource(SOURCE))map.addSource(SOURCE,{type:'geojson',data:EMPTY});
-      if(!map.getLayer(LAYER)) {
-        const symbol=map.getStyle()?.layers?.find(l=>l.type==='symbol')?.id;
-        map.addLayer({id:LAYER,type:'heatmap',source:SOURCE,
-          layout:{visibility:visible()?'visible':'none'},paint},symbol);
-        lastCount=-1;
-      }
-      map.setLayoutProperty(LAYER,'visibility',visible()?'visible':'none');
-      return true;
-    }catch(error){
-      errors++;
-      console.error('IBAMA KDE layer setup:',error);
-      return false;
-    }
+
+/* One kernel feature per EXACT georeferenced location, as in the global
+ * Observatory. The record counts survive grouping and are summed in
+ * heatmap-weight. Coordinate values are never pixel-rounded or clustered
+ * by proximity. This is independent of marker visibility.
+ */
+export function buildIbamaDensity(records){
+ const sites=new Map();
+ let n=0;
+ for(const record of records||[]){
+  const coords=record?.geometry?.coordinates;
+  if(record?.geometry?.type!=='Point'||!Array.isArray(coords)||coords.length<2)continue;
+  const lon=Number(coords[0]),lat=Number(coords[1]);
+  if(!Number.isFinite(lon)||!Number.isFinite(lat)||Math.abs(lon)>180||Math.abs(lat)>90)continue;
+  const key=lon+','+lat;
+  const site=sites.get(key);
+  if(site)site.count++;
+  else sites.set(key,{lon,lat,count:1});
+  n++;
+ }
+ return {total:n,locations:sites.size,collection:{
+  type:'FeatureCollection',
+  features:[...sites.values()].map(site=>({
+   type:'Feature',
+   properties:{event_count:site.count},
+   geometry:{type:'Point',coordinates:[site.lon,site.lat]}
+  }))
+ }};
+}
+const PAINT={
+ 'heatmap-weight':['/', ['get','event_count'], KDE_REFERENCE_COUNT],
+ 'heatmap-intensity':['interpolate',['linear'],['zoom'],0,0.85,8,1.35],
+ 'heatmap-radius':['interpolate',['linear'],['zoom'],0,12,3,22,7,38,12,62],
+ 'heatmap-opacity':0.83,
+ // Same blue/yellow/orange/red hues used by the wildlife-trafficking map.
+ // Faint extra blue stops retain a readable trace of low-volume selections
+ // without mapping their local maximum to red.
+ 'heatmap-color':['interpolate',['linear'],['heatmap-density'],
+   0,'rgba(29,185,220,0)',
+   0.015,'rgba(33,166,217,0.14)',
+   0.04,'rgba(33,166,217,0.30)',
+   0.12,'rgba(33,166,217,0.45)',
+   0.30,'#1684c5',
+   0.50,'#ffe65b',
+   0.72,'#ff8f39',
+   1,'#e63832']
+};
+export function createIbamaKde({map}){
+ let enabled=false,official=false,selected=[],lastCount=-1,lastLocations=0,errors=0;
+ let installed=false,updateTimer=null;
+ const visible=()=>enabled&&official;
+ function ensure(){
+  if(!map?.isStyleLoaded?.())return false;
+  try{
+   if(!map.getSource(SOURCE))map.addSource(SOURCE,{type:'geojson',data:EMPTY});
+   if(!map.getLayer(LAYER)){
+    const before=map.getStyle()?.layers?.find(l=>l.type==='symbol')?.id;
+    map.addLayer({
+     id:LAYER,type:'heatmap',source:SOURCE,
+     layout:{visibility:visible()?'visible':'none'},
+     paint:PAINT
+    },before);
+    lastCount=-1;
+   }
+   map.setLayoutProperty(LAYER,'visibility',visible()?'visible':'none');
+   return true;
+  }catch(error){
+   errors++;
+   console.warn('IBAMA Hotspots layer not rendered',error);
+   return false;
   }
-  function update() {
-    if(!ensure())return;
-    if(!visible())return;
-    // Exact filtered records, including all notices at identical coordinates.
-    const items=selected.filter(f=>f?.geometry?.type==='Point'&&
-      Array.isArray(f.geometry.coordinates)&&
-      f.geometry.coordinates.every(n=>Number.isFinite(Number(n))));
-    map.getSource(SOURCE).setData({type:'FeatureCollection',features:items.map(rawFeature)});
-    lastCount=items.length;
-  }
-  function schedule() {
-    if(updateTimer!==null)clearTimeout(updateTimer);
-    updateTimer=setTimeout(()=>{updateTimer=null;update();},80);
-  }
-  function init() {
-    if(installed)return;
-    installed=true;
-    map.on('style.load',()=>{lastCount=-1;schedule();});
-    map.on('load',schedule);
-    schedule();
-  }
-  return {
-    init,
-    setEnabled(next){enabled=Boolean(next);schedule();},
-    setOfficial(next){official=Boolean(next);schedule();},
-    setSelected(records){selected=Array.isArray(records)?records:[];schedule();},
-    health:()=>({enabled,official,visible:visible(),
-      selectedRecords:selected.length,drawnRecords:visible()?lastCount:0,
-      layer:!!map?.getLayer?.(LAYER),source:!!map?.getSource?.(SOURCE),
-      referenceCount:KDE_REFERENCE_COUNT,bandwidthKm:KDE_RADIUS_KM,errors})
-  };
+ }
+ function update(){
+  if(!ensure()||!visible())return;
+  const result=buildIbamaDensity(selected);
+  map.getSource(SOURCE).setData(result.collection);
+  lastCount=result.total;
+  lastLocations=result.locations;
+ }
+ function schedule(){
+  if(updateTimer!==null)clearTimeout(updateTimer);
+  updateTimer=setTimeout(()=>{updateTimer=null;update();},75);
+ }
+ function init(){
+  if(installed)return;
+  installed=true;
+  map.on('style.load',()=>{lastCount=-1;schedule();});
+  map.on('load',schedule);
+  map.on('idle',()=>{if(visible()&&!map.getLayer(LAYER))schedule();});
+  schedule();
+ }
+ return {
+  init,
+  setEnabled(next){enabled=Boolean(next);schedule();},
+  setOfficial(next){official=Boolean(next);schedule();},
+  setSelected(records){selected=Array.isArray(records)?records:[];schedule();},
+  health:()=>({
+   enabled,official,visible:visible(),
+   selectedRecords:selected.length,
+   drawnRecords:visible()?lastCount:0,
+   drawnLocations:visible()?lastLocations:0,
+   layer:!!map?.getLayer?.(LAYER),source:!!map?.getSource?.(SOURCE),
+   referenceCount:KDE_REFERENCE_COUNT,
+   radiusPx:KDE_RADIUS_PIXELS,
+   palette:KDE_PALETTE_VERSION,
+   errors
+  })
+ };
 }

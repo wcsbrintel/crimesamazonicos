@@ -81,8 +81,18 @@ try {
   await page.locator('#layers-close').click();
   await page.locator('#mode-official').click();
   await page.waitForFunction(()=>document.body.dataset.dataView==='official'&&!!document.querySelector('#official-rail:not([hidden])'));
-  await page.waitForFunction(()=>Number((document.querySelector('#official-total')?.textContent||'').replace(/[^0-9]/g,''))>0);
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.status==='ready',null,{timeout:30000});
   assert(await page.locator('#official-year').inputValue()==='2025','Only verified 2025 IBAMA year available');
+  assert(await page.locator('.official-category-toggle:checked').count()===0,
+    'Official infraction categories must initially be Nenhuma');
+  assert(await page.locator('#official-select-none').getAttribute('aria-pressed')==='true',
+    'Nenhuma must be the active official category preset');
+  assert((await page.locator('#official-total').textContent()).replace(/[^0-9]/g,'')==='0',
+    'No official records should display until a category is selected');
+  assert((await page.locator('.ibama-html-pin').count())===0,
+    'Official records should not appear before a category is selected');
+  await page.locator('#official-select-all').click();
+  await page.waitForFunction(()=>Number((document.querySelector('#official-total')?.textContent||'').replace(/[^0-9]/g,''))>0);
   assert(await page.locator('#official-rail').isVisible(),'Official rail not visible');
   assert(!(await page.locator('#official-kde-toggle').isChecked()),
     'Hotspots must start disabled');
@@ -186,8 +196,36 @@ try {
   assert(initialKde.visible&&initialKde.layer,'Hotspots layer must be visible in official mode');
   assert(initialKde.drawnRecords===ibamaHealth.features,
          'KDE must weight every filtered official record, not one per coordinate');
-  assert(initialKde.referenceCount===null,'Wildlife-equivalent KDE must use original unnormalised event weights');
-  assert(initialKde.palette==='wildlife-exact-v3'&&initialKde.scale==='relative','Hotspots must use exactly the wildlife heatmap paint');
+  assert(initialKde.referenceCount===25,'KDE must retain a fixed event-count reference across filters');
+  assert(initialKde.palette==='ibama-count-calibrated-v4'&&initialKde.scale==='absolute-per-kernel',
+    'Hotspots intensity must be calibrated to stable raw record counts');
+  const kdeCalibration=await page.evaluate(async()=>{
+    const m=await import(new URL('./assets/js/ibama-kde.js?v=20261124-kde-calibrated1',document.baseURI).href);
+    const point=(lon,lat)=>({type:'Feature',geometry:{type:'Point',coordinates:[lon,lat]},properties:{}});
+    const lone=m.buildIbamaDensity([point(-60,-3)]);
+    const inLargerSelection=m.buildIbamaDensity([point(-60,-3),point(-65,-5),point(-66,-6)]);
+    const duplicates=m.buildIbamaDensity(Array.from({length:100},()=>point(-60,-3)));
+    return {
+      fixedWeight:m.KDE_PAINT['heatmap-weight'],
+      intensity:m.KDE_PAINT['heatmap-intensity'],
+      colorStops:m.KDE_PAINT['heatmap-color'],
+      singleWeight:lone.collection.features[0].properties.event_count/m.KDE_REFERENCE_COUNT,
+      singleWithOtherPoints:inLargerSelection.collection.features.find(f=>f.geometry.coordinates[0]===-60).properties.event_count/m.KDE_REFERENCE_COUNT,
+      hundredWeight:duplicates.collection.features[0].properties.event_count/m.KDE_REFERENCE_COUNT,
+      hundredRecords:duplicates.total,
+      duplicateSites:duplicates.locations
+    };
+  });
+  console.log('IBAMA KDE COUNT CALIBRATION',JSON.stringify(kdeCalibration));
+  assert(kdeCalibration.intensity===1,'KDE intensity must not change with map zoom');
+  assert(kdeCalibration.singleWeight===kdeCalibration.singleWithOtherPoints,
+    'An isolated event changed weight when other filtered events were added');
+  assert(kdeCalibration.singleWeight===1/25&&kdeCalibration.hundredWeight===4,
+    'Hotspots must distinguish a singleton from 100 co-located notices');
+  assert(kdeCalibration.hundredRecords===100&&kdeCalibration.duplicateSites===1,
+    'Exact-coordinate duplicate notices lost their total count');
+  assert(kdeCalibration.colorStops.includes('#e63832'),
+    'Hotspots high-density red ramp is missing');
   assert(initialKde.drawnLocations===ibamaHealth.dom.selectedDistinctLocations,'KDE must preserve countable autos across identical coordinates');
   const actualHeatStyle=await page.evaluate(()=>{
     const map=window.__amazonMapHealth?.();
@@ -314,11 +352,17 @@ try {
     window.__amazonMapHealth?.().ibama?.explorer?.visible,null,{timeout:20000});
   const miningKde=await page.evaluate(()=>window.__amazonMapHealth?.().ibama?.kde);
   assert(miningKde.drawnRecords===filteredMining.visible,'Hotspots did not update to filtered mining record count');
-  assert(miningKde.scale===initialKde.scale,'Hotspots changed their KDE rendering mode after filtering');
+  assert(miningKde.scale===initialKde.scale&&miningKde.referenceCount===initialKde.referenceCount,
+    'Filtering changed the KDE absolute count calibration');
   assert(filteredMining.visible>0&&filteredMining.visible<ibamaHealth.features,'Mining filter failed');
   await page.locator('#official-state').selectOption('PA');
   await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.state==='PA');
   await page.locator('#official-reset').click();
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.visible===0);
+  assert(await page.locator('.official-category-toggle:checked').count()===0,
+    'Reset must return official infraction types to Nenhuma');
+  assert(await page.locator('#official-select-none').getAttribute('aria-pressed')==='true',
+    'Nenhuma must remain active after resetting');
   await page.locator('#mode-osint').click();
   await page.waitForFunction(()=>document.body.dataset.dataView==='osint');
   await page.waitForTimeout(300);

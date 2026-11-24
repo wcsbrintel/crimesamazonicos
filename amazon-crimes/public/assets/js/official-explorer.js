@@ -25,7 +25,7 @@ const TYPES=[
 ];
 const lookup=Object.fromEntries(TYPES.map(t=>[t[0],t]));
 export function createOfficialExplorer({getLanguage,onChange,onSelectRecord}){
- let features=[],ready=false,error=false,mode='osint',search='',state='all',year='2025',visibleLimit=36,enabled=new Set(),selected=[];
+ let features=[],ready=false,error=false,mode='osint',search='',state='all',year='2025',visibleLimit=36,enabled=new Set(['deforestation']),selected=[];
  const language=()=>['pt','en','es'].includes(getLanguage())?getLanguage():'en';
  const t=()=>D[language()];
  const categories=f=>f?.properties?.categories?.length?f.properties.categories:[f?.properties?.category||'other'];
@@ -129,7 +129,7 @@ export function createOfficialExplorer({getLanguage,onChange,onSelectRecord}){
   $('official-select-all').addEventListener('click',()=>{TYPES.forEach(t=>enabled.add(t[0]));renderCategories();refresh();});
   $('official-select-none').addEventListener('click',()=>{enabled.clear();renderCategories();refresh();});
   $('official-reset').addEventListener('click',()=>{
-   year='2025';state='all';search='';visibleLimit=36;enabled=new Set();
+   year='2025';state='all';search='';visibleLimit=36;enabled=new Set(['deforestation']);
    $('official-year').value=year;$('official-state').value=state;$('official-search').value=search;
    render();
   });

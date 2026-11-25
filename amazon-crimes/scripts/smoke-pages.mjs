@@ -379,6 +379,26 @@ try {
   assert(filteredMining.visible>0&&filteredMining.visible<ibamaHealth.features,'Mining filter failed');
   await page.locator('#official-state').selectOption('PA');
   await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.state==='PA');
+  // Historical years are isolated from 2025 and loaded on demand without
+  // mixing records or changing the canonical OSINT source.
+  for(const year of ['2020','2024']){
+    await page.locator('#official-year').selectOption(year);
+    await page.waitForFunction(y=>window.__amazonMapHealth?.().ibama?.status==='ready'&&
+      String(window.__amazonMapHealth?.().ibama?.year)===y&&
+      window.__amazonMapHealth?.().ibama?.features>0,year,{timeout:35000});
+    const annual=await page.evaluate(()=>window.__amazonMapHealth?.().ibama);
+    console.log('IBAMA HISTORICAL YEAR',year,JSON.stringify({
+      records:annual.features,year:annual.year,selected:annual.explorer.visible,
+      status:annual.status
+    }));
+    assert(annual.year===Number(year)&&annual.features>0,
+      'Historical IBAMA annual records unavailable '+year);
+    assert(annual.explorer.year===year&&annual.explorer.visible>0,
+      'Historical IBAMA filters are not applied to selected year '+year);
+  }
+  await page.locator('#official-year').selectOption('2025');
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.year===2025&&
+    window.__amazonMapHealth?.().ibama?.status==='ready',null,{timeout:35000});
   await page.locator('#official-reset').click();
   await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.state==='all'
     && window.__amazonMapHealth?.().ibama?.explorer?.visible>0);

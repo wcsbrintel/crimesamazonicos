@@ -52,7 +52,7 @@ export function municipalityGroups(exactGroups){
  return [...groups.values()].map(g=>({...g,lon:g.lon/g.members.length,lat:g.lat/g.members.length}));
 }
 
-export function createIbamaDomOverlay({map,maplibregl,getFeatures,getEnabledCategories,getLanguage,onSingle,onGroup}){
+export function createIbamaDomOverlay({map,maplibregl,getFeatures,getEnabledCategories,getLanguage,onSingle,onGroup,getTitle}){
  const markers=new Map();
  let timer=null,installed=false,pointsVisible=true,visibleRecords=0,visibleSites=0,
    coincidentSites=0,selectedSites=0,displayMode='exact',cityMarkers=0;
@@ -125,8 +125,9 @@ export function createIbamaDomOverlay({map,maplibregl,getFeatures,getEnabledCate
    const title=isCity?group.municipality+' · '+group.uf+' · '+n.toLocaleString(locale())+
       (getLanguage()==='pt'?' autos oficiais':getLanguage()==='es'?' actas oficiales':' official notices')
      :n>1?n.toLocaleString(locale())+' records at identical coordinates':'Official IBAMA record';
-   entry.button.title=title;
-   entry.button.setAttribute('aria-label',title);
+   const accessibleTitle=getTitle?.(group)||title;
+   entry.button.title=accessibleTitle;
+   entry.button.setAttribute('aria-label',accessibleTitle);
   }
   for(const [key,entry]of markers)if(!wanted.has(key)){entry.marker.remove();markers.delete(key);}
  }

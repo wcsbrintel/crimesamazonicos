@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@6.9.0/dist/maplibre-gl.css" />
   <link rel="stylesheet" href="./assets/css/app.css?v=20261123-ibama-evidence2" />
-  <link rel="stylesheet" href="./assets/css/ibama-2025.css?v=20261124-geo-fix1" />
-  <link rel="stylesheet" href="./assets/css/observatory-explorer.css?v=20261124-kde-calibrated1" />
+  <link rel="stylesheet" href="./assets/css/ibama-2025.css?v=20261125-osint-parity1" />
+  <link rel="stylesheet" href="./assets/css/observatory-explorer.css?v=20261125-osint-parity1" />
 </head>
 <body data-data-view="osint">
   <div class="shell">
@@ -59,16 +59,6 @@
         <article class="stat-card"><span class="stat-label" data-i18n="statesCountries">Áreas com registros</span><strong id="stat-areas">0</strong><small data-i18n="geographicCoverage">cobertura geográfica</small></article>
       </section>
 
-      <section class="filters-panel">
-        <div class="filter-group grow"><label for="search" data-i18n="searchLabel">Buscar</label><input id="search" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="local, operação, órgão, palavra-chave..." /></div>
-        <div class="filter-group"><label for="crime-type" data-i18n="crimeType">Tipo de crime</label><select id="crime-type"></select></div>
-        <div class="filter-group"><label for="validation-status" data-i18n="status">Status</label><select id="validation-status"></select></div>
-        <div class="filter-group temporal-control"><label for="time-open" data-i18n="period">Período</label><button id="time-open" type="button" aria-haspopup="dialog" aria-controls="time-dialog">Últimos 12 meses</button></div>
-        <button id="time-reset" class="secondary time-reset" type="button" hidden>Remover filtro temporal</button>
-        <button id="clear-filters" class="secondary" data-i18n="clearFilters">Limpar filtros</button>
-      </section>
-      <div class="time-summary-row" id="time-summary" aria-live="polite"></div>
-      <section class="time-comparison" id="time-comparison" aria-label="Comparação temporal" hidden></section>
       <dialog id="time-dialog" class="time-dialog" aria-modal="true"></dialog>
 
       <section class="main-grid">
@@ -86,7 +76,7 @@
             <div id="map" aria-label="Mapa de crimes ambientais"></div>
             <aside id="layers-panel" class="layers-panel" aria-hidden="true">
               <div class="layers-panel-head"><div><strong data-i18n="layerCatalog">Catálogo de camadas OSINT</strong><p data-i18n="layerCatalogHint">A estrutura já reserva espaço para dados ambientais, apreensões, segurança, sensores e territórios.</p></div><button id="layers-close" aria-label="Fechar">×</button></div>
-              <section class="layer-section"><div class="layer-section-title"><span data-i18n="crimeLayers">Crimes ambientais</span><div><button id="layers-all" class="tiny" data-i18n="allCrimeLayers">Todas as categorias</button><button id="layers-none" class="tiny" data-i18n="none">Nenhuma</button></div></div><div id="crime-layer-list" class="layer-list"></div></section>
+
               
                <section class="layer-section future"><div class="layer-section-title"><span data-i18n="futureLayers">Camadas futuras</span></div><div id="future-layer-list"></div></section>
             </aside>
@@ -111,8 +101,42 @@
         </article>
 
         <aside class="feed-card">
-          <div class="section-head compact"><div><span class="section-kicker" data-i18n="eventFeedKicker">FLUXO DE EVENTOS</span><h2 data-i18n="eventFeed">Eventos recentes</h2></div><span id="feed-count" class="count-badge">0</span></div>
-          <div id="event-feed" class="event-feed"><div class="empty-state"><strong data-i18n="noEvents">Nenhum evento encontrado.</strong><span data-i18n="emptyHint">Ajuste os filtros ou ative outras camadas.</span></div></div>
+          <section id="osint-rail" class="official-rail" aria-label="OSINT events">
+            <div class="official-heading">
+              <span class="official-eyebrow" data-explorer-label="osint">OSINT EVENTS</span>
+              <h2 data-i18n="eventFeed">Eventos recentes</h2>
+              <p data-i18n="subtitle">Inteligência OSINT em near-real-time</p>
+              <div class="official-big-number"><strong id="osint-total">0</strong><span id="osint-count-label">events in selection</span></div>
+              <div class="official-kpi-pair">
+                <div><strong id="osint-location-count">0</strong><small id="osint-location-label">Distinct locations</small></div>
+                <div><strong id="osint-category-count">0</strong><small id="osint-category-label">Selected layers</small></div>
+              </div>
+            </div>
+            <div class="official-filters">
+              <div class="official-field"><label for="search" data-i18n="searchLabel">Buscar</label><input id="search" type="search" data-i18n-placeholder="searchPlaceholder" /></div>
+              <div class="official-select-row">
+                <div class="official-field"><label for="crime-type" data-i18n="crimeType">Tipo de crime</label><select id="crime-type"></select></div>
+                <div class="official-field"><label for="validation-status" data-i18n="status">Status</label><select id="validation-status"></select></div>
+              </div>
+              <div class="official-field"><label for="time-open" data-i18n="period">Período</label><button id="time-open" type="button" aria-haspopup="dialog" aria-controls="time-dialog">Últimos 12 meses</button></div>
+              <div class="time-summary-row" id="time-summary" aria-live="polite"></div>
+              <section class="time-comparison" id="time-comparison" aria-label="Comparação temporal" hidden></section>
+              <button id="time-reset" class="official-reset time-reset" type="button" hidden>Remover filtro temporal</button>
+              <div class="official-filter-title"><strong data-i18n="crimeLayers">Crimes ambientais</strong><div><button type="button" id="layers-all" data-i18n="all">Todas</button><button type="button" id="layers-none" data-i18n="none">Nenhuma</button></div></div>
+              <div id="crime-layer-list" class="official-category-list"></div>
+              <div class="official-kde-tools">
+                <label class="official-kde-switch" for="osint-points-toggle"><input type="checkbox" id="osint-points-toggle" checked /><span id="osint-points-label">Show points</span></label>
+                <div class="official-kde-separator"></div>
+                <label class="official-kde-switch" for="osint-kde-toggle"><input type="checkbox" id="osint-kde-toggle" /><span>Hotspots</span></label>
+                <div id="osint-kde-legend" class="official-kde-legend" hidden>
+                  <span class="osint-kde-legend-caption" id="osint-kde-legend-caption">Fixed intensity scale · each event counts once</span>
+                  <div class="official-kde-gradient" aria-hidden="true"></div>
+                  <div class="official-kde-scale"><span id="osint-kde-legend-low">1–2 events: blue</span><span id="osint-kde-legend-high">High concentration: red</span></div>
+                </div>
+              </div>
+              <button id="clear-filters" type="button" class="official-reset" data-i18n="clearFilters">Limpar filtros</button>
+            </div>
+          </section>
           <section id="official-rail" class="official-rail" hidden aria-label="Official IBAMA records">
             <div class="official-heading">
               <span class="official-eyebrow" id="official-eyebrow">OFFICIAL SOURCE / IBAMA</span>
@@ -186,7 +210,7 @@
     <footer><span class="footer-program"><span data-i18n="footerProgram">Programa de Inteligência para Conservação | WCS Brasil</span> <span aria-hidden="true">•</span> <a href="https://brasil.wcs.org" target="_blank" rel="noopener noreferrer">brasil.wcs.org</a></span><span id="last-updated">—</span></footer>
   </div>
 
-  <script type="module" src="./assets/js/app.js?v=20261124-default-deforestation1"></script>
+  <script type="module" src="./assets/js/app.js?v=20261125-osint-parity1"></script>
   <script type="module" src="./assets/js/how-it-works-link.js?v=20261115-events-repair2"></script>
   <script type="module" src="./assets/js/media-dock.js?v=20260927-3"></script>
 </body>

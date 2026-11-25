@@ -1,4 +1,6 @@
 import { translations } from './i18n.js';
+import { createIbamaDomOverlay } from './ibama-2025-dom.js?v=20261125-osint-parity1';
+import { createIbamaKde } from './ibama-kde.js?v=20261125-osint-parity1';
 import { installIbama2025, refreshIbamaLanguage, ibama2025Health, setIbamaOfficialMode } from './ibama-2025.js?v=20261124-default-deforestation1';
 import { preferredLanguage, selectLanguage, listenLanguage } from './language-preference.js?v=20261115-unified';
 import { createTemporalFilter } from './temporal-filter.js?v=20261115-lastyear';
@@ -34,7 +36,7 @@ let cameraGlobe = null;
 const htmlLayerMarkers = new Map();
 // DOM event pins remain visible independently from style/projection GeoJSON circles.
 // Event cards and canonical source data are unchanged.
-const eventHtmlMarkers = new Map();
+let osintDomOverlay=null,osintKde=null;
 const htmlMarkerLayerIds = new Set(['weather_stations', 'river_gauges', 'armed_groups', 'clandestine_airstrips', 'public_routes']);
 
 // Layer state is intentionally session-scoped. Persisting visibility caused stale/empty
@@ -146,6 +148,14 @@ function initMap() {
   map.on('click', handleMapClick);
   map.on('mousemove', handleMapHover);
   installIbama2025(map, maplibregl, () => language);
+  osintDomOverlay=createIbamaDomOverlay({map,maplibregl,getFeatures:()=>dataView==='osint'?osintSelectedFeatures():[],getEnabledCategories:()=>activeCrimeLayers,getLanguage:()=>language,
+    onSingle:(p,location)=>openEventPopup(events.find(e=>e.id===p.id),location),
+    onGroup:openOsintGroup,
+    getTitle:g=>g.members.length===1?localized(events.find(e=>e.id===g.members[0].properties.id)?.title):g.members.length.toLocaleString(locale())+' '+t('eventFeed')});
+  osintDomOverlay.start();
+  osintKde=createIbamaKde({map,namespace:'osint'});
+  osintKde.init();
+  syncEventHtmlMarkers();
   map.on('zoom', updateHtmlMarkerScale);
   // Projection/style changes should never be able to orphan the event source/layer.
   map.on('idle', () => {
@@ -208,7 +218,7 @@ function setLanguage(next) {
   renderLayerPanel();
   render();
   refreshIbamaLanguage();
-  if(dataView==='official'){
+  {
     const title=document.querySelector('#layers-panel .layers-panel-head strong');
     if(title)title.textContent=({pt:'Camadas ambientais adicionais',en:'Additional environmental layers',es:'Capas ambientales adicionales'}[language]||'Additional environmental layers');
   }
@@ -258,7 +268,7 @@ function applyFilters() {
 
 function render() {
   renderStats();
-  renderFeed();
+  renderOsintRail();
   renderCrimeBars();
   renderSignals();
   updateMapData();
@@ -292,48 +302,16 @@ function eventsGeoJson() {
 
 // Maintain native MapLibre DOM markers as a safety net for browsers where
 // symbol/circle layers fail to reappear after a globe or basemap style change.
+function osintSelectedFeatures() {
+  return eventsGeoJson().features.filter(f=>activeCrimeLayers.has(f.properties.primary_crime_type)).map(f=>({...f,properties:{...f.properties,category:f.properties.primary_crime_type,categories:[f.properties.primary_crime_type]}}));
+}
 function syncEventHtmlMarkers() {
-  if (!map || !maplibregl?.Marker) return;
-  // OSINT markers belong exclusively to the OSINT view. Remove them from
-  // MapLibre itself when opening official data: CSS hiding alone allowed a
-  // visible flash during style/projection rebuilds and delayed repaints.
-  if (dataView !== 'osint') {
-    for (const entry of eventHtmlMarkers.values()) entry.marker.remove();
-    eventHtmlMarkers.clear();
-    return;
-  }
-  const wanted = new Set();
-  for (const event of filteredEvents) {
-    const category = event.primary_crime_type || 'OTHER_ENVIRONMENTAL_CRIME';
-    if (!activeCrimeLayers.has(category)) continue;
-    const lon = Number(event.location?.lon), lat = Number(event.location?.lat);
-    if (!Number.isFinite(lon) || !Number.isFinite(lat) || lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
-    wanted.add(event.id);
-    let entry = eventHtmlMarkers.get(event.id);
-    if (!entry) {
-      const element = document.createElement('button');
-      element.type = 'button';
-      element.className = 'event-html-pin';
-      element.style.setProperty('--event-pin-color', crimeTypeMeta[category]?.color || '#7f8c8d');
-      element.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        openEventPopup(event, { lng: lon, lat });
-      });
-      const marker = new maplibregl.Marker({ element, anchor: 'center' })
-        .setLngLat([lon, lat]).addTo(map);
-      entry = { marker, element };
-      eventHtmlMarkers.set(event.id, entry);
-    }
-    entry.element.classList.toggle('recent', isRecent(event));
-    entry.element.setAttribute('aria-label', localized(event.title) || event.id);
-    entry.element.title = localized(event.title) || event.id;
-  }
-  for (const [id, entry] of eventHtmlMarkers) {
-    if (wanted.has(id)) continue;
-    entry.marker.remove();
-    eventHtmlMarkers.delete(id);
-  }
+  if(!osintDomOverlay)return;
+  const active=dataView==='osint';
+  osintDomOverlay.setVisible(active && Boolean($('#osint-points-toggle')?.checked));
+  osintKde?.setOfficial(active);
+  osintKde?.setEnabled(Boolean($('#osint-kde-toggle')?.checked));
+  osintKde?.setSelected(active?osintSelectedFeatures():[]);
 }
 
 function radiosGeoJson() {
@@ -462,7 +440,7 @@ function rebuildMapData() {
     colorMatch.push('#7f8c8d');
     map.addLayer({
       id: 'crime-events', type: 'circle', source: 'events',
-      layout: { visibility: dataView === 'osint' && activeCrimeLayers.size ? 'visible' : 'none' },
+      layout: { visibility: 'none' },
       paint: {
         // MapLibre requires the `zoom` expression to be the direct input of a
         // top-level interpolate/step expression. Nesting zoom interpolations inside
@@ -696,7 +674,7 @@ function updateLayerVisibility() {
   syncMosaicLayers(map, activeMosaics, mapTheme);
   const crimeLayer = 'crime-events';
   if (map.getLayer(crimeLayer)) {
-    map.setLayoutProperty(crimeLayer, 'visibility', dataView==='osint' && activeCrimeLayers.size ? 'visible' : 'none');
+    map.setLayoutProperty(crimeLayer, 'visibility', 'none');
     const enabled = [...activeCrimeLayers];
     map.setFilter(crimeLayer, enabled.length
       ? ['in', ['get', 'primary_crime_type'], ['literal', enabled]]
@@ -716,7 +694,7 @@ function interactiveLayerIds() {
   // Official IBAMA uses its own pointer targets, so OSINT/auxiliary hit-testing
   // must not intercept clicks or hover while that source is active.
   if (dataView === 'official') return [];
-  const ids = map.getLayer('crime-events') && activeCrimeLayers.size ? ['crime-events'] : [];
+  const ids = [];
   if (activeAuxLayers.has('radio_stations') && map.getLayer('aux-radio_stations')) ids.push('aux-radio_stations');
   if (activeAuxLayers.has('public_cameras') && map.getLayer('aux-public_cameras')) ids.push('aux-public_cameras');
   if (activeAuxLayers.has('fire_hotspots') && map.getLayer('aux-fire_hotspots')) ids.push('aux-fire_hotspots');
@@ -772,14 +750,99 @@ function handleMapHover(e) {
   map.getCanvas().style.cursor = feature ? 'pointer' : '';
 }
 
-function openEventPopup(event, lngLat = null) {
+function fitOsintPopup(popupView) {
+ // Normal-screen mode is often scrolled: use the INTERSECTION of the map
+ // and the actual browser viewport, not the entire map canvas. A card
+ // placed beneath the fold must never be mistaken for fully visible.
+ if(activePopup!==popupView || !popupView?.getElement?.())return;
+ const mapRect=map.getContainer().getBoundingClientRect();
+ const left=Math.max(10,mapRect.left+12),right=Math.min(window.innerWidth-10,mapRect.right-12);
+ const top=Math.max(10,mapRect.top+12),bottom=Math.min(window.innerHeight-10,mapRect.bottom-12);
+ const width=right-left,height=bottom-top;
+ if(width<100 || height<100)return;
+ const element=popupView.getElement();
+ const content=element.querySelector('.maplibregl-popup-content');
+ if(!content)return;
+ // Leave room for the MapLibre arrow, close button and margins; long
+ // narratives remain available by scrolling inside the card.
+ const maxWidth=Math.max(120,Math.min(430,width-28));
+ const maxHeight=Math.max(85,Math.min(520,height-52));
+ element.style.maxWidth=maxWidth+'px';
+ content.style.width='100%';
+ content.style.boxSizing='border-box';
+ content.style.maxHeight=maxHeight+'px';
+ content.style.overflowY='auto';
+ content.style.overscrollBehavior='contain';
+ content.scrollTop=0;
+ const inner=content.querySelector('.ibama-detailed, .ibama-choices');
+ if(inner)inner.scrollTop=0;
+ const centerPopup=()=>{
+  if(activePopup!==popupView || !element.isConnected)return;
+  const popupRect=element.getBoundingClientRect();
+  const desiredX=(left+right)/2,desiredY=(top+bottom)/2;
+  const dx=desiredX-(popupRect.left+popupRect.width/2);
+  const dy=desiredY-(popupRect.top+popupRect.height/2);
+  // Move the camera rather than changing marker transforms. Every source
+  // coordinate stays georeferenced and the popup follows its MapLibre anchor.
+  if(Math.abs(dx)>5||Math.abs(dy)>5)
+   map.panBy([-dx,-dy],{duration:230});
+ };
+ requestAnimationFrame(()=>requestAnimationFrame(centerPopup));
+}
+
+function focusOsintLocation(location){
+ const lng=Number(location?.lng),lat=Number(location?.lat);
+ if(!Number.isFinite(lng)||!Number.isFinite(lat))return;
+ // Always follow the clicked source coordinate, never a municipality centroid.
+ // Keep existing zoom if already closer; do not zoom out on another click.
+ map.easeTo({center:[lng,lat],zoom:Math.max(map.getZoom(),8.5),duration:450});
+ // Refit after the zoom animation, since opening the card and moving the
+ // camera happen in the same click handler.
+ map.once('moveend',()=>{
+  if(activePopup)fitOsintPopup(activePopup);
+ });
+}
+function createOsintPopup(location,maxWidth='450px'){
   closePopup();
-  const coordinates = lngLat || { lng: event.location.lon, lat: event.location.lat };
-  activePopup = new maplibregl.Popup({ closeButton: true, maxWidth: '440px', offset: 14 })
-    .setLngLat(coordinates)
-    .setHTML(eventPopupHtml(event))
-    .addTo(map);
-  hydrateEventMedia(event, activePopup.getElement());
+  const pop=new maplibregl.Popup({closeButton:true,closeOnClick:false,maxWidth,offset:12,className:'ibama-official-popup'}).setLngLat(location).addTo(map);
+  activePopup=pop;
+  pop.on('close',()=>{if(activePopup===pop)activePopup=null;});
+  return pop;
+}
+function renderOsintDetail(view,event,back=null){
+  const backLabel=({pt:'← Voltar à lista',en:'← Back to list',es:'← Volver a la lista'})[language];
+  view.setHTML('<div class="ibama-detailed">'+(back?'<button type="button" class="ibama-choice-back">'+escapeHtml(backLabel)+'</button>':'')+eventPopupHtml(event)+'</div>');
+  if(back)view.getElement().querySelector('.ibama-choice-back').addEventListener('click',back);
+  hydrateEventMedia(event,view.getElement());
+  fitOsintPopup(view);
+}
+function openEventPopup(event,lngLat=null){
+  if(!event)return;
+  const loc=lngLat||{lng:event.location.lon,lat:event.location.lat};
+  const view=createOsintPopup(loc);
+  renderOsintDetail(view,event);
+  focusOsintLocation(loc);
+}
+function openOsintGroup(group,location){
+  const records=group.members.map(f=>events.find(e=>e.id===f.properties.id)).filter(Boolean).sort((a,b)=>temporal.info(b).date-temporal.info(a).date);
+  const view=createOsintPopup(location,'430px');
+  const tr=({pt:{title:'Eventos OSINT',note:'Registros nas mesmas coordenadas geográficas (sem agrupamento por proximidade). Selecione um evento para visualizar.',search:'Buscar por título, data, local ou tipo'},en:{title:'OSINT Events',note:'Records at identical geographic coordinates (no proximity clustering). Select an event to view.',search:'Search by title, date, place or type'},es:{title:'Eventos OSINT',note:'Registros con coordenadas geográficas idénticas (sin agrupación por proximidad). Seleccione un evento para visualizar.',search:'Buscar por título, fecha, lugar o tipo'}})[language];
+  function renderPage(page=0,search=''){
+    const q=search.trim().toLocaleLowerCase();
+    const fields=e=>[localized(e.title),formatDate(temporal.info(e).date),e.location?.name,e.location?.admin1,e.location?.country,crimeLabel(e.primary_crime_type)];
+    const matches=records.filter(e=>!q||fields(e).filter(Boolean).join(' ').toLocaleLowerCase().includes(q));
+    const pageSize=20,totalPages=Math.max(1,Math.ceil(matches.length/pageSize)),current=Math.max(0,Math.min(page,totalPages-1));
+    const buttons=matches.slice(current*pageSize,(current+1)*pageSize).map((e,i)=>'<button type="button" class="ibama-case-choice" data-choice="'+(current*pageSize+i)+'"><strong>'+escapeHtml(localized(e.title))+'</strong><small>'+escapeHtml(fields(e).slice(1).filter(Boolean).join(' · '))+'</small></button>').join('');
+    view.setHTML('<div class="ibama-popup ibama-choices"><strong>'+escapeHtml(tr.title)+'</strong><p>'+matches.length.toLocaleString(locale())+' / '+records.length.toLocaleString(locale())+'</p><p class="ibama-exact-note">'+escapeHtml(tr.note)+'</p><input class="ibama-choice-search" type="search" placeholder="'+escapeAttr(tr.search)+'" aria-label="'+escapeAttr(tr.search)+'" value="'+escapeAttr(search)+'"><div class="ibama-choice-list">'+(buttons||'<p>—</p>')+'</div><div class="ibama-choice-pager"><button type="button" data-page="previous" '+(current===0?'disabled':'')+'>←</button><span>'+(current+1)+' / '+totalPages+'</span><button type="button" data-page="next" '+(current>=totalPages-1?'disabled':'')+'>→</button></div></div>');
+    fitOsintPopup(view);
+    const root=view.getElement();
+    root.querySelector('.ibama-choice-search').addEventListener('input',e=>{const v=e.target.value;renderPage(0,v);const input=view.getElement().querySelector('.ibama-choice-search');input.focus();input.setSelectionRange(v.length,v.length);});
+    root.querySelectorAll('.ibama-case-choice').forEach(b=>b.addEventListener('click',()=>{const event=matches[Number(b.dataset.choice)];if(event)renderOsintDetail(view,event,()=>renderPage(current,search));}));
+    root.querySelector('[data-page="previous"]').addEventListener('click',()=>renderPage(current-1,search));
+    root.querySelector('[data-page="next"]').addEventListener('click',()=>renderPage(current+1,search));
+  }
+  renderPage();
+  focusOsintLocation(location);
 }
 
 function renderContextWithLinks(value) {
@@ -1061,37 +1124,20 @@ function localized(value) {
   return value[language] || value.pt || value.en || value.es || '';
 }
 
-function renderFeed() {
-  const container = $('#event-feed');
-  $('#feed-count').textContent = filteredEvents.length;
-  if (!filteredEvents.length) {
-    container.innerHTML = `<div class="empty-state"><strong>${escapeHtml(t('noEvents'))}</strong><span>${escapeHtml(t('emptyHint'))}</span></div>`;
-    return;
-  }
-  const sorted = [...filteredEvents].sort((a, b) => temporal.info(b).date - temporal.info(a).date);
-  container.innerHTML = sorted.slice(0, 100).map((event) => {
-    const recent = isRecent(event);
-    const displayedTime = temporal.info(event);
-    const location = [event.location?.name, event.location?.admin1, event.location?.country].filter(Boolean).join(' • ');
-    const primary = event.primary_crime_type || 'OTHER_ENVIRONMENTAL_CRIME';
-    const media = (event.source_media || []).find((m) => m.type === 'image' && m.url);
-    const hasMedia = Boolean(media);
-    const imageHtml = media ? `<div class="event-thumb-wrap"><img class="event-thumb" src="${escapeAttr(media.url)}" alt="${escapeAttr(localized(media.caption) || localized(event.title) || t('sourceImages'))}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.event-thumb-wrap')?.remove()" /></div>` : '';
-    return `<article class="event-item ${hasMedia ? 'has-thumb' : ''}" data-event-id="${escapeAttr(event.id)}" tabindex="0" role="button">
-      ${imageHtml}
-      <div class="event-item-body">
-        <div class="event-meta"><span>${escapeHtml(location)}</span><span>${escapeHtml(displayedTime.label + ': ')}${escapeHtml(formatDate(displayedTime.date))}</span></div>
-        <div class="event-title-row"><span class="event-dot-marker" style="--icon-bg:${escapeAttr(crimeTypeMeta[primary]?.color || '#777')}"></span><h3>${escapeHtml(localized(event.title))}</h3></div>
-        <p>${escapeHtml(localized(event.summary))}</p>
-        <div class="event-tags">${recent ? `<span class="tag recent">${escapeHtml(t('recent'))}</span>` : ''}<span class="tag crime" style="--tag-color:${escapeAttr(crimeTypeMeta[primary]?.color || '#777')}">${escapeHtml(crimeLabel(primary))}</span>${hasMedia ? `<span class="tag">▧ ${escapeHtml(t('sourceImages'))}</span>` : ''}</div>
-      </div>
-    </article>`;
-  }).join('');
-  $$('.event-item').forEach((el) => {
-    const activate = () => focusEvent(el.dataset.eventId);
-    el.addEventListener('click', activate);
-    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') activate(); });
-  });
+function renderOsintRail(){
+  const labels=({pt:['eventos na seleção','Localizações distintas','Camadas selecionadas','Mostrar pontos','Escala fixa de intensidade · cada evento vale 1','1–2 eventos: azul','Alta concentração: vermelho'],en:['events in selection','Distinct locations','Selected layers','Show points','Fixed intensity scale · each event counts once','1–2 events: blue','High concentration: red'],es:['eventos en la selección','Localizaciones distintas','Capas seleccionadas','Mostrar puntos','Escala fija de intensidad · cada evento cuenta una vez','1–2 eventos: azul','Alta concentración: rojo']})[language];
+  ['count-label','location-label','category-label','points-label','kde-legend-caption','kde-legend-low','kde-legend-high'].forEach((id,i)=>{$('#osint-'+id).textContent=labels[i];});
+  $('#osint-rail [data-explorer-label="osint"]').textContent=({pt:'EVENTOS OSINT',en:'OSINT EVENTS',es:'EVENTOS OSINT'})[language];
+  const selected=filteredEvents.filter(e=>activeCrimeLayers.has(e.primary_crime_type||'OTHER_ENVIRONMENTAL_CRIME'));
+  $('#osint-total').textContent=selected.length.toLocaleString(locale());
+  $('#osint-location-count').textContent=new Set(osintSelectedFeatures().map(f=>f.geometry.coordinates.join(','))).size.toLocaleString(locale());
+  $('#osint-category-count').textContent=activeCrimeLayers.size.toLocaleString(locale());
+  const counts=Object.fromEntries(crimeTypes.map(type=>[type,0]));
+  for(const e of filteredEvents){const type=e.primary_crime_type||'OTHER_ENVIRONMENTAL_CRIME';if(type in counts)counts[type]++;}
+  const list=$('#crime-layer-list');
+  list.innerHTML=crimeTypes.map(type=>'<label class="official-category-row'+(activeCrimeLayers.has(type)?' selected':'')+'"><input class="crime-layer-toggle" type="checkbox" value="'+escapeAttr(type)+'" '+(activeCrimeLayers.has(type)?'checked':'')+'><i class="official-category-dot" style="--category-color:'+escapeAttr(crimeTypeMeta[type]?.color||'#777')+'"></i><span>'+escapeHtml(crimeLabel(type))+'</span><b>'+counts[type].toLocaleString(locale())+'</b></label>').join('');
+  list.querySelectorAll('input').forEach(input=>input.addEventListener('change',()=>{if(input.checked)activeCrimeLayers.add(input.value);else activeCrimeLayers.delete(input.value);renderOsintRail();updateLayerVisibility();}));
+  for(const [button,on] of [[$('#layers-all'),activeCrimeLayers.size===crimeTypes.length],[$('#layers-none'),activeCrimeLayers.size===0]]){button.classList.toggle('active',on);button.setAttribute('aria-pressed',String(on));}
 }
 
 function focusEvent(eventId) {
@@ -1175,16 +1221,7 @@ async function toggleMosaic(id, enabled) {
 }
 
 function renderLayerPanel() {
-  const crimeList = $('#crime-layer-list');
-  if (!crimeList) return;
-  crimeList.innerHTML = crimeTypes.map((type) => {
-    const kind = iconKindByCrime[type] || 'other';
-    return `<label class="layer-row"><input class="crime-layer-toggle" type="checkbox" value="${type}" ${activeCrimeLayers.has(type) ? 'checked' : ''}><span class="layer-dot-marker" style="--swatch:${escapeAttr(crimeTypeMeta[type]?.color || '#777')}"></span><span>${escapeHtml(crimeLabel(type))}</span></label>`;
-  }).join('');
-  $$('.crime-layer-toggle').forEach((input) => input.addEventListener('change', () => {
-    if (input.checked) activeCrimeLayers.add(input.value); else activeCrimeLayers.delete(input.value);
-    updateLayerVisibility();
-  }));
+  renderOsintRail();
 
   $('#future-layer-list').innerHTML = layerRegistry.map((group) => {
     const groupLabel = localized(group.label) || group.id;
@@ -1330,7 +1367,7 @@ function changeDataView(view) {
   const layerCatalogTitle=document.querySelector('#layers-panel .layers-panel-head strong');
   if(layerCatalogTitle)layerCatalogTitle.textContent=next==='official'
     ? ({pt:'Camadas ambientais adicionais',en:'Additional environmental layers',es:'Capas ambientales adicionales'}[language]||'Additional environmental layers')
-    : t('layerCatalog');
+    : ({pt:'Camadas ambientais adicionais',en:'Additional environmental layers',es:'Capas ambientales adicionales'}[language]||'Additional environmental layers');
   setIbamaOfficialMode(next==='official');
   closePopup();
   if(map){
@@ -1349,7 +1386,7 @@ function bindControls() {
   temporal.bind();
   $('#clear-filters').addEventListener('click', () => {
     state.search = ''; state.crimeType = 'all'; state.status = 'all';
-    $('#search').value = ''; populateFilters(); temporal.resetDefault();
+    $('#search').value = ''; activeCrimeLayers.clear(); crimeTypes.forEach(type=>activeCrimeLayers.add(type)); populateFilters(); temporal.resetDefault();
   });
   $$('[data-theme-choice]').forEach((button) => button.addEventListener('click', () => setTheme(button.dataset.themeChoice)));
   $$('[data-mode]').forEach((button) => button.addEventListener('click', () => setMapMode(button.dataset.mode)));
@@ -1357,8 +1394,10 @@ function bindControls() {
   $('#map-fullscreen')?.addEventListener('click', toggleMapFullscreen);
   document.addEventListener('fullscreenchange', syncFullscreenButton);
   $('#layers-close').addEventListener('click', () => toggleLayersPanel(false));
-  $('#layers-all').addEventListener('click', () => { crimeTypes.forEach((type) => activeCrimeLayers.add(type)); updateLayerVisibility(); });
-  $('#layers-none').addEventListener('click', () => { activeCrimeLayers.clear(); updateLayerVisibility(); });
+  $('#layers-all').addEventListener('click', () => { crimeTypes.forEach((type) => activeCrimeLayers.add(type)); renderOsintRail(); updateLayerVisibility(); });
+  $('#layers-none').addEventListener('click', () => { activeCrimeLayers.clear(); renderOsintRail(); updateLayerVisibility(); });
+  $('#osint-points-toggle').addEventListener('change',()=>{if(!$('#osint-points-toggle').checked)closePopup();syncEventHtmlMarkers();});
+  $('#osint-kde-toggle').addEventListener('change',()=>{$('#osint-kde-legend').hidden=!$('#osint-kde-toggle').checked;syncEventHtmlMarkers();});
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleLayersPanel(false); });
   $$('[data-theme-choice]').forEach((button) => button.classList.toggle('active', button.dataset.themeChoice === mapTheme));
   $$('[data-mode]').forEach((button) => button.classList.toggle('active', button.dataset.mode === mapMode));
@@ -1444,7 +1483,7 @@ window.__amazonMapHealth = () => {
     mapConstructed:Boolean(map),styleLoaded:loaded,
     mapCanvas:Boolean(canvas),mapError:node?.querySelector('.map-unavailable')?.textContent||null,
     layer:Boolean(layer),source:Boolean(source),visible,rendered,sourceFeatureCount,
-    htmlEventMarkers:eventHtmlMarkers.size,
+    htmlEventMarkers:osintDomOverlay?.health()?.domMarkers||0,osintDensity:osintKde?.health()||null,osintMarkers:osintDomOverlay?.health()||null,
     mapElementSize:node?{width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height}:null,
     zoom:map?.getZoom?.(),center:map?.getCenter?.().toArray?.(),renderError,
     ibama:ibama2025Health(),

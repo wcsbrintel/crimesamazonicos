@@ -18,8 +18,8 @@
    The interactive surface remains 12px, while the colour core stays 5px.
    A 0.5px white separator and a full 1px black outer edge are applied to
    the same pseudo-element for both kinds of location. */
-body[data-data-view="official"] .ibama-html-pin,
-body[data-data-view="official"] .ibama-html-pin.ibama-html-cluster {
+.ibama-html-pin,
+.ibama-html-pin.ibama-html-cluster {
   box-sizing:border-box !important;
   width:12px !important;
   height:12px !important;
@@ -41,8 +41,8 @@ body[data-data-view="official"] .ibama-html-pin.ibama-html-cluster {
   pointer-events:auto;
   touch-action:manipulation;
 }
-body[data-data-view="official"] .ibama-html-pin::after,
-body[data-data-view="official"] .ibama-html-pin.ibama-html-cluster::after {
+.ibama-html-pin::after,
+.ibama-html-pin.ibama-html-cluster::after {
   content:"";
   display:block !important;
   box-sizing:content-box;
@@ -56,11 +56,11 @@ body[data-data-view="official"] .ibama-html-pin.ibama-html-cluster::after {
   box-shadow:0 0 0 0.5px #fff,0 0 0 1.5px #111 !important;
   pointer-events:none;
 }
-body[data-data-view="official"] .ibama-html-pin:hover::after,
-body[data-data-view="official"] .ibama-html-pin:focus-visible::after {
+.ibama-html-pin:hover::after,
+.ibama-html-pin:focus-visible::after {
   background:var(--ibama-color,#8e9b9c);
 }
-body[data-data-view="official"] .ibama-html-pin:focus-visible::after {
+.ibama-html-pin:focus-visible::after {
   outline:1px dotted #111;
   outline-offset:3px;
 }
@@ -68,17 +68,17 @@ body[data-data-view="official"] .ibama-html-pin:focus-visible::after {
 body[data-data-view="official"] .official-results {
   display:none !important;
 }
-body[data-data-view="official"] .ibama-official-popup {
+.ibama-official-popup {
   z-index:50;
   pointer-events:auto;
 }
-body[data-data-view="official"] .ibama-official-popup .maplibregl-popup-content {
+.ibama-official-popup .maplibregl-popup-content {
   width:min(430px,calc(100vw - 45px));
   overflow-y:auto;
   overscroll-behavior:contain;
 }
-body[data-data-view="official"] .ibama-official-popup .ibama-detailed,
-body[data-data-view="official"] .ibama-official-popup .ibama-choices {
+.ibama-official-popup .ibama-detailed,
+.ibama-official-popup .ibama-choices {
   max-height:none;
   overflow:visible;
 }
@@ -98,10 +98,10 @@ body[data-data-view="official"] .ibama-official-popup .ibama-choices {
 /* Global Role-inspired monochrome point cloud (IBAMA only).
    Retain 5px dot cores and the original 12px hit targets. Municipality
    summaries appear only at reduced map zoom; exact coordinates resume on zoom. */
-body[data-data-view="official"] .ibama-html-pin:not(.ibama-city-group)::after {
+.ibama-html-pin:not(.ibama-city-group)::after {
   background:var(--ibama-color,#252729) !important;
 }
-body[data-data-view="official"] .ibama-html-pin.ibama-city-group {
+.ibama-html-pin.ibama-city-group {
   width:var(--city-size,24px) !important;
   height:var(--city-size,24px) !important;
   min-width:var(--city-size,24px) !important;
@@ -119,10 +119,10 @@ body[data-data-view="official"] .ibama-html-pin.ibama-city-group {
   overflow:visible !important;
   z-index:2;
 }
-body[data-data-view="official"] .ibama-html-pin.ibama-city-group::after {
+.ibama-html-pin.ibama-city-group::after {
   display:none !important;
 }
-body[data-data-view="official"] .ibama-city-total {
+.ibama-city-total {
   display:block;
   color:#fff;
   font-size:10px;
@@ -130,7 +130,7 @@ body[data-data-view="official"] .ibama-city-total {
   font-weight:800;
   line-height:1;
 }
-body[data-data-view="official"] .ibama-city-label {
+.ibama-city-label {
   position:absolute;
   left:calc(100% + 6px);
   top:50%;
@@ -144,16 +144,16 @@ body[data-data-view="official"] .ibama-city-label {
   font-weight:700;
   pointer-events:none;
 }
-body[data-data-view="official"] .ibama-html-pin.ibama-city-group:hover,
-body[data-data-view="official"] .ibama-html-pin.ibama-city-group:focus-visible {
+.ibama-html-pin.ibama-city-group:hover,
+.ibama-html-pin.ibama-city-group:focus-visible {
   z-index:11;
   background:#080a0b !important;
 }
 
 /* Invariant: native MapLibre positioning MUST win over thematic styling. */
 .maplibregl-marker.ibama-html-pin,
-body[data-data-view="official"] .maplibregl-marker.ibama-html-pin,
-body[data-data-view="official"] .maplibregl-marker.ibama-html-pin.ibama-city-group {
+.maplibregl-marker.ibama-html-pin,
+.maplibregl-marker.ibama-html-pin.ibama-city-group {
   position:absolute !important;
   left:0 !important;
   top:0 !important;

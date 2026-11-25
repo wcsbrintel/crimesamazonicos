@@ -57,7 +57,9 @@ export const KDE_PAINT={
   0.5,'#ff8f39',
   0.85,'#e63832']
 };
-export function createIbamaKde({map}){
+export function createIbamaKde({map,namespace}){
+ const SOURCE=namespace?namespace+'-kde-records':'official-ibama-kde-records';
+ const LAYER=namespace?namespace+'-kde-heatmap':'official-ibama-kde-heatmap';
  let enabled=false,official=false,selected=[],lastCount=-1,lastLocations=0,errors=0;
  let installed=false,updateTimer=null;
  const visible=()=>enabled&&official;

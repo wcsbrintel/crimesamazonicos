@@ -1,15 +1,15 @@
-/* Map-first, institution-specific 2025 official-data explorer.
+/* Map-first, institution-specific 2020–2025 official-data explorer.
  * All statistics and list rows come from the SAME verified IBAMA GeoJSON.
- * No unsupported year is offered. The canonical OSINT feed remains separate.
+ * Only validated annual snapshots may be selected. OSINT remains separate.
  */
 const $=id=>document.getElementById(id);
 const SAFE=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clean=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const fmt=(n,lang)=>Number(n||0).toLocaleString(lang==='pt'?'pt-BR':lang==='es'?'es-ES':'en-US');
 const D={
- pt:{osint:'EVENTOS OSINT',official:'DADOS OFICIAIS',strap:'Fontes independentes e rastreáveis',eyebrow:'FONTE OFICIAL / IBAMA',title:'Fiscalização ambiental',subtitle:'Autos de infração · Amazônia Legal brasileira',count:'autos na seleção',locations:'Localizações distintas',layers:'Camadas selecionadas',source:'Instituição oficial',year:'Ano dos registros',state:'Estado',allStates:'Todos os estados',search:'Buscar autos oficiais',searchHint:'Auto, município, operação, processo ou espécie...',types:'Tipos de infração',all:'Todas',none:'Nenhuma',reset:'Limpar filtros oficiais',available:'Base oficial disponível: 2025. Outros anos ainda não foram importados.',records:'Autos oficiais',more:'Mostrar mais autos',caution:'Autos de infração são registros administrativos, não condenações criminais. Recorte: UFs da Amazônia Legal, não o limite exato do bioma.',empty:'Nenhum auto corresponde aos filtros selecionados.',loading:'Carregando dados oficiais…',error:'Não foi possível carregar os dados oficiais.',sourceOption:'IBAMA · Autos de infração',mapCaption:'IBAMA · 2025 · Autos de infração',menuTitle:'Camadas e fontes',points:'Mostrar pontos',kde:'Hotspots',kdeCaption:'Escala fixa de intensidade · cada auto vale 1',kdeLow:'1–2 autos: azul',kdeHigh:'Alta concentração: vermelho'},
- en:{osint:'OSINT EVENTS',official:'OFFICIAL DATA',strap:'Independent and traceable data collections',eyebrow:'OFFICIAL SOURCE / IBAMA',title:'Environmental enforcement',subtitle:'Administrative inspection notices · Brazilian Legal Amazon',count:'notices in selection',locations:'Distinct locations',layers:'Selected layers',source:'Official institution',year:'Record year',state:'State',allStates:'All states',search:'Search official records',searchHint:'Notice, municipality, operation, process or species...',types:'Types of infraction',all:'All',none:'None',reset:'Clear official filters',available:'Available official data: 2025. Other years have not been imported.',records:'Official notices',more:'Show more notices',caution:'Inspection notices are administrative records, not criminal convictions. Scope: Legal Amazon states, not the exact Amazon biome boundary.',empty:'No official notices match the filters.',loading:'Loading official records…',error:'Official records are unavailable.',sourceOption:'IBAMA · Inspection notices',mapCaption:'IBAMA · 2025 · Inspection notices',menuTitle:'Layers and sources',points:'Show points',kde:'Hotspots',kdeCaption:'Fixed intensity scale · each notice counts once',kdeLow:'1–2 notices: blue',kdeHigh:'High concentration: red'},
- es:{osint:'EVENTOS OSINT',official:'DATOS OFICIALES',strap:'Fuentes independientes y trazables',eyebrow:'FUENTE OFICIAL / IBAMA',title:'Fiscalización ambiental',subtitle:'Actas administrativas · Amazonía Legal brasileña',count:'actas en la selección',locations:'Localizaciones distintas',layers:'Capas seleccionadas',source:'Institución oficial',year:'Año de los registros',state:'Estado',allStates:'Todos los estados',search:'Buscar registros oficiales',searchHint:'Acta, municipio, operación, expediente o especie...',types:'Tipos de infracción',all:'Todas',none:'Ninguna',reset:'Borrar filtros oficiales',available:'Datos oficiales disponibles: 2025. Otros años aún no se han importado.',records:'Actas oficiales',more:'Mostrar más actas',caution:'Las actas de infracción son registros administrativos, no condenas penales. Ámbito: estados de la Amazonía Legal, no el límite exacto del bioma.',empty:'Ningún acta coincide con los filtros.',loading:'Cargando datos oficiales…',error:'No se pudieron cargar los datos oficiales.',sourceOption:'IBAMA · Actas de infracción',mapCaption:'IBAMA · 2025 · Actas de infracción',menuTitle:'Capas y fuentes',points:'Mostrar puntos',kde:'Hotspots',kdeCaption:'Escala fija de intensidad · cada acta cuenta una vez',kdeLow:'1–2 actas: azul',kdeHigh:'Alta concentración: rojo'}
+ pt:{osint:'EVENTOS OSINT',official:'DADOS OFICIAIS',strap:'Fontes independentes e rastreáveis',eyebrow:'FONTE OFICIAL / IBAMA',title:'Fiscalização ambiental',subtitle:'Autos de infração · Amazônia Legal brasileira',count:'autos na seleção',locations:'Localizações distintas',layers:'Camadas selecionadas',source:'Instituição oficial',year:'Ano dos registros',state:'Estado',allStates:'Todos os estados',search:'Buscar autos oficiais',searchHint:'Auto, município, operação, processo ou espécie...',types:'Tipos de infração',all:'Todas',none:'Nenhuma',reset:'Limpar filtros oficiais',available:'Bases oficiais disponíveis: 2020–2025. Um ano por seleção.',records:'Autos oficiais',more:'Mostrar mais autos',caution:'Autos de infração são registros administrativos, não condenações criminais. Recorte: UFs da Amazônia Legal, não o limite exato do bioma.',empty:'Nenhum auto corresponde aos filtros selecionados.',loading:'Carregando dados oficiais…',error:'Não foi possível carregar os dados oficiais.',sourceOption:'IBAMA · Autos de infração',mapCaption:'IBAMA · 2020–2025 · Autos de infração',menuTitle:'Camadas e fontes',points:'Mostrar pontos',kde:'Hotspots',kdeCaption:'Escala fixa de intensidade · cada auto vale 1',kdeLow:'1–2 autos: azul',kdeHigh:'Alta concentração: vermelho'},
+ en:{osint:'OSINT EVENTS',official:'OFFICIAL DATA',strap:'Independent and traceable data collections',eyebrow:'OFFICIAL SOURCE / IBAMA',title:'Environmental enforcement',subtitle:'Administrative inspection notices · Brazilian Legal Amazon',count:'notices in selection',locations:'Distinct locations',layers:'Selected layers',source:'Official institution',year:'Record year',state:'State',allStates:'All states',search:'Search official records',searchHint:'Notice, municipality, operation, process or species...',types:'Types of infraction',all:'All',none:'None',reset:'Clear official filters',available:'Official data available: 2020–2025. Select one year.',records:'Official notices',more:'Show more notices',caution:'Inspection notices are administrative records, not criminal convictions. Scope: Legal Amazon states, not the exact Amazon biome boundary.',empty:'No official notices match the filters.',loading:'Loading official records…',error:'Official records are unavailable.',sourceOption:'IBAMA · Inspection notices',mapCaption:'IBAMA · 2020–2025 · Inspection notices',menuTitle:'Layers and sources',points:'Show points',kde:'Hotspots',kdeCaption:'Fixed intensity scale · each notice counts once',kdeLow:'1–2 notices: blue',kdeHigh:'High concentration: red'},
+ es:{osint:'EVENTOS OSINT',official:'DATOS OFICIALES',strap:'Fuentes independientes y trazables',eyebrow:'FUENTE OFICIAL / IBAMA',title:'Fiscalización ambiental',subtitle:'Actas administrativas · Amazonía Legal brasileña',count:'actas en la selección',locations:'Localizaciones distintas',layers:'Capas seleccionadas',source:'Institución oficial',year:'Año de los registros',state:'Estado',allStates:'Todos los estados',search:'Buscar registros oficiales',searchHint:'Acta, municipio, operación, expediente o especie...',types:'Tipos de infracción',all:'Todas',none:'Ninguna',reset:'Borrar filtros oficiales',available:'Datos oficiales disponibles: 2020–2025. Seleccione un año.',records:'Actas oficiales',more:'Mostrar más actas',caution:'Las actas de infracción son registros administrativos, no condenas penales. Ámbito: estados de la Amazonía Legal, no el límite exacto del bioma.',empty:'Ningún acta coincide con los filtros.',loading:'Cargando datos oficiales…',error:'No se pudieron cargar los datos oficiales.',sourceOption:'IBAMA · Actas de infracción',mapCaption:'IBAMA · 2020–2025 · Actas de infracción',menuTitle:'Capas y fuentes',points:'Mostrar puntos',kde:'Hotspots',kdeCaption:'Escala fija de intensidad · cada acta cuenta una vez',kdeLow:'1–2 actas: azul',kdeHigh:'Alta concentración: rojo'}
 };
 const STATES=['AC','AM','AP','MA','MT','PA','RO','RR','TO'];
 const TYPES=[
@@ -24,7 +24,7 @@ const TYPES=[
  ['other','#8e9b9c',{pt:'Outras infrações ambientais',en:'Other infractions',es:'Otras infracciones'}]
 ];
 const lookup=Object.fromEntries(TYPES.map(t=>[t[0],t]));
-export function createOfficialExplorer({getLanguage,onChange,onSelectRecord}){
+export function createOfficialExplorer({getLanguage,onChange,onSelectRecord,onYearChange}){
  let features=[],ready=false,error=false,mode='osint',search='',state='all',year='2025',visibleLimit=36,enabled=new Set(['deforestation']),selected=[];
  const language=()=>['pt','en','es'].includes(getLanguage())?getLanguage():'en';
  const t=()=>D[language()];
@@ -121,10 +121,11 @@ export function createOfficialExplorer({getLanguage,onChange,onSelectRecord}){
   if(!$('official-rail'))return;
   $('official-state').innerHTML='<option value="all">'+SAFE(t().allStates)+'</option>'+STATES.map(s=>'<option value="'+s+'">'+s+'</option>').join('');
   $('official-state').value=state;
-  $('official-year').value='2025';
+  $('official-year').innerHTML=Array.from({length:6},(_,i)=>2025-i).map(y=>'<option value="'+y+'">'+y+'</option>').join('');
+  $('official-year').value=year;
   $('official-source').value='ibama';
   $('official-state').addEventListener('change',e=>{state=e.target.value;visibleLimit=36;renderCategories();refresh();});
-  $('official-year').addEventListener('change',e=>{year=e.target.value;visibleLimit=36;renderCategories();refresh();});
+  $('official-year').addEventListener('change',e=>{year=e.target.value;visibleLimit=36;ready=false;features=[];render();onYearChange?.(Number(year));});
   $('official-search').addEventListener('input',e=>{search=e.target.value;visibleLimit=36;renderCategories();refresh();});
   $('official-select-all').addEventListener('click',()=>{TYPES.forEach(t=>enabled.add(t[0]));renderCategories();refresh();});
   $('official-select-none').addEventListener('click',()=>{enabled.clear();renderCategories();refresh();});
@@ -132,6 +133,7 @@ export function createOfficialExplorer({getLanguage,onChange,onSelectRecord}){
    year='2025';state='all';search='';visibleLimit=36;enabled=new Set(['deforestation']);
    $('official-year').value=year;$('official-state').value=state;$('official-search').value=search;
    render();
+   onYearChange?.(2025);
   });
   $('official-more').addEventListener('click',()=>{visibleLimit+=36;renderResults();});
   render();
@@ -140,7 +142,8 @@ export function createOfficialExplorer({getLanguage,onChange,onSelectRecord}){
   init,render,selected:()=>selected,enabled:()=>enabled,mode:()=>mode,
   setMode(next){mode=next;refresh();},
   setData(next){features=Array.isArray(next)?next:[];ready=true;error=false;render();},
-  setError(){error=true;ready=false;render();},
+  setLoading(){error=false;ready=false;features=[];render();},
+  setError(){error=true;ready=false;features=[];render();},
   status:()=>({mode,ready,year,state,search,visible:selected.length,selectedLocations:new Set(selected.map(signature)).size})
  };
 }

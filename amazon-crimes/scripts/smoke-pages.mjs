@@ -387,6 +387,10 @@ try {
   assert(filteredMining.visible>0&&filteredMining.visible<ibamaHealth.features,'Mining filter failed');
   await page.locator('#official-state').selectOption('PA');
   await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.state==='PA');
+  // Historical data should be inspected with an all-state, all-category
+  // selection rather than retaining a previous PA/mining drilldown.
+  await page.locator('#official-state').selectOption('all');
+  await page.locator('#official-select-all').click();
   // Historical years are isolated from 2025 and loaded on demand without
   // mixing records or changing the canonical OSINT source.
   for(const year of ['2020','2024']){

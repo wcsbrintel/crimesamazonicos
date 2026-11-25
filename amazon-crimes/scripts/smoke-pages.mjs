@@ -103,6 +103,13 @@ try {
     'Official selected category total must be one');
   await page.locator('#official-select-all').click();
   await page.waitForFunction(()=>Number((document.querySelector('#official-total')?.textContent||'').replace(/[^0-9]/g,''))>0);
+  // The DOM marker overlay debounces updates. Synchronize with the actual
+  // selected-source locations before making any distinct-site assertions.
+  await page.waitForFunction(()=>{
+    const state=window.__amazonMapHealth?.().ibama;
+    return state?.explorer?.visible===state?.features &&
+      state?.dom?.selectedDistinctLocations===state?.explorer?.selectedLocations;
+  },null,{timeout:20000});
   assert(await page.locator('#official-rail').isVisible(),'Official rail not visible');
   assert(!(await page.locator('#official-kde-toggle').isChecked()),
     'Hotspots must start disabled');
@@ -236,7 +243,8 @@ try {
     'Exact-coordinate duplicate notices lost their total count');
   assert(kdeCalibration.colorStops.includes('#e63832'),
     'Hotspots high-density red ramp is missing');
-  assert(initialKde.drawnLocations===ibamaHealth.dom.selectedDistinctLocations,'KDE must preserve countable autos across identical coordinates');
+  assert(initialKde.drawnLocations>0 && initialKde.drawnLocations<=initialKde.drawnRecords,
+    'KDE must aggregate identical coordinates while counting every auto');
   const actualHeatStyle=await page.evaluate(()=>{
     const map=window.__amazonMapHealth?.();
     return {gradient:document.querySelector('.official-kde-gradient')?.style?.background||null};

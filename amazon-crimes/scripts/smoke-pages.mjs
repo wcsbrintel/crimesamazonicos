@@ -411,6 +411,32 @@ try {
   await page.locator('#official-year').selectOption('2025');
   await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.year===2025&&
     window.__amazonMapHealth?.().ibama?.status==='ready',null,{timeout:35000});
+  // The all-years button must aggregate six independent annual snapshots.
+  assert(await page.locator('#official-year-all').getAttribute('aria-pressed')==='false',
+    'All-years control must be off by default');
+  await page.locator('#official-year-all').click();
+  await page.waitForFunction(()=>{
+    const h=window.__amazonMapHealth?.().ibama;
+    return h?.status==='ready'&&h?.year==='all'&&h?.features===30464&&h?.explorer?.visible===30464;
+  },null,{timeout:60000});
+  assert(await page.locator('#official-year-all').getAttribute('aria-pressed')==='true',
+    'All years button must show its active state');
+  const allYearState=await page.evaluate(()=>window.__amazonMapHealth?.().ibama);
+  console.log('IBAMA ALL YEARS',JSON.stringify({year:allYearState.year,
+    total:allYearState.features,selected:allYearState.explorer.visible}));
+  assert(allYearState.features===3185+3730+3873+7712+5387+6577,
+    'All years must contain each official annual snapshot exactly once');
+  await page.locator('#official-select-none').click();
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.visible===0);
+  await page.locator('input.official-category-toggle[value="deforestation"]').check();
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.visible===3967);
+  assert((await page.locator('#official-total').textContent()).replace(/[^0-9]/g,'')==='3967',
+    'All-years thematic filters must count only matching records');
+  await page.locator('#official-year-all').click();
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.year===2025&&
+    window.__amazonMapHealth?.().ibama?.status==='ready',null,{timeout:35000});
+  assert(await page.locator('#official-year-all').getAttribute('aria-pressed')==='false',
+    'All years must turn off when returning to a specific year');
   await page.locator('#official-reset').click();
   await page.waitForFunction(()=>window.__amazonMapHealth?.().ibama?.explorer?.state==='all'
     && window.__amazonMapHealth?.().ibama?.explorer?.visible>0);

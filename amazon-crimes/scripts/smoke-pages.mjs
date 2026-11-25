@@ -29,7 +29,7 @@ async function load(){
   try {
     await page.waitForFunction(()=>{
       const total=Number(document.querySelector('#stat-total')?.textContent.replace(/[^0-9]/g,''));
-      const shown=Number(document.querySelector('#feed-count')?.textContent.replace(/[^0-9]/g,''));
+      const shown=Number(document.querySelector('#osint-total')?.textContent.replace(/[^0-9]/g,''));
       return total>0 && shown>0;
     },null,{timeout:55000});
   }catch(e){
@@ -37,7 +37,7 @@ async function load(){
     console.error('PAGE STATE:',await page.evaluate(()=>({
       title:document.title,lang:document.documentElement.lang,
       total:document.querySelector('#stat-total')?.textContent,
-      shown:document.querySelector('#feed-count')?.textContent,
+      shown:document.querySelector('#osint-total')?.textContent,
       items:document.querySelectorAll('.event-item').length,
       message:document.querySelector('#event-feed')?.textContent?.slice(0,350),
       period:document.querySelector('#time-open')?.textContent
@@ -49,11 +49,11 @@ try {
   await load();
   const state=await page.evaluate(()=>({
     total:Number(document.querySelector('#stat-total')?.textContent.replace(/[^0-9]/g,'')),
-    filtered:Number(document.querySelector('#feed-count')?.textContent.replace(/[^0-9]/g,'')),
+    filtered:Number(document.querySelector('#osint-total')?.textContent.replace(/[^0-9]/g,'')),
     rows:document.querySelectorAll('.event-item').length,
     lang:document.documentElement.lang,
     period:document.querySelector('#time-open')?.textContent,
-    firstCardVisible:!!document.querySelector('.event-item')?.getBoundingClientRect().height
+    railVisible:!!document.querySelector('#osint-rail')?.getBoundingClientRect().height
   }));
   console.log('DEFAULT:',JSON.stringify(state));
   await page.waitForTimeout(7000);
@@ -69,15 +69,19 @@ try {
   // Explicit source selector: the default remains canonical OSINT and cannot be
   // contaminated by administrative records.
   assert(await page.locator('body').getAttribute('data-data-view')==='osint','Default mode must be OSINT');
-  assert((await page.locator('.ibama-html-pin').count())===0,'IBAMA markers must not cover OSINT by default');
+  assert(mapState.diagnostics?.ibama?.dom?.domMarkers===0,'IBAMA records must not cover OSINT by default');
+  assert(await page.locator('#osint-rail').isVisible(),'OSINT filters must be in the sidebar');
+  assert(await page.locator('#event-feed').count()===0,'Legacy event list must be removed');
+  const osintStyle=await page.locator('.ibama-html-pin').first().evaluate(el=>{const dot=getComputedStyle(el,'::after');return {width:dot.width,height:dot.height,outline:dot.boxShadow};});
+  assert(osintStyle.width==='5px'&&osintStyle.height==='5px'&&osintStyle.outline.includes('0.5px')&&osintStyle.outline.includes('1.5px'),'OSINT must share official dot geometry');
   // A fresh visit starts with every optional layer unchecked.
   await page.locator('#layers-toggle').click();
   const osintCategoryCount=await page.locator('.crime-layer-toggle').count();
   assert(osintCategoryCount>0,'OSINT thematic categories were not rendered');
   assert(await page.locator('.crime-layer-toggle:checked').count()===osintCategoryCount,
     'All OSINT categories must start enabled independently of the official Nenhuma selection');
-  assert(mapState.diagnostics?.visible==='visible',
-    'OSINT events must be visible on the map on first load');
+  assert(mapState.diagnostics?.osintMarkers?.pointsVisible===true,
+    'OSINT event points must be visible on first load');
   assert(mapState.diagnostics?.htmlEventMarkers>0,
     'OSINT georeferenced event markers must render when opening the map');
   assert(await page.locator('.aux-layer-toggle:checked').count()===0,
@@ -104,7 +108,7 @@ try {
     'Hotspots must start disabled');
   assert(await page.locator('#official-kde-legend').isHidden(),
     'Hotspots legend should be hidden while disabled');
-  assert(!(await page.locator('#event-feed').isVisible()),'OSINT feed should be hidden in official mode');
+  assert(!(await page.locator('#osint-rail').isVisible()),'OSINT filter rail should be hidden in official mode');
   // Regression test: official 2025 IBAMA records must be visible, not merely counted.
   await page.waitForFunction(() => window.__amazonMapHealth?.().ibama?.status === 'ready', null, {timeout: 30000});
   await page.waitForFunction(() => document.querySelectorAll('.ibama-html-pin').length > 0, null, {timeout: 15000});
@@ -390,7 +394,7 @@ try {
   assert(mapState.diagnostics?.source,'Map event GeoJSON source missing');
   // The OSINT selection survives visiting the IBAMA area and retains
   // the user's own independently configurable category filters.
-  assert(mapState.diagnostics?.visible==='visible','OSINT crime layers must initially be visible');
+  assert(mapState.diagnostics?.osintMarkers?.pointsVisible===true,'OSINT points must initially be visible');
   await page.locator('#layers-toggle').click();
   const actualOsintCategories=await page.locator('.crime-layer-toggle').count();
   assert(await page.locator('.crime-layer-toggle:checked').count()===actualOsintCategories,
@@ -400,7 +404,7 @@ try {
   assert(await page.locator('.crime-layer-toggle:checked').count()===actualOsintCategories-1,
     'OSINT categories must remain independently toggleable');
   await firstCrime.check({force:true});
-  await page.waitForFunction(()=>window.__amazonMapHealth?.().visible==='visible',null,{timeout:10000});
+  await page.waitForFunction(()=>window.__amazonMapHealth?.().osintMarkers?.pointsVisible===true,null,{timeout:10000});
   assert(await page.locator('.crime-layer-toggle:checked').count()===actualOsintCategories,
     'Reactivating the OSINT category must restore its selection');
   // Diagnose real geographical overlay controls and remote raster sources.
@@ -458,12 +462,12 @@ try {
   assert(publishedTotal>=176,'Expected at least 176 eligible records in public dataset, got '+publishedTotal);
   assert(state.total===publishedTotal,'Dashboard total '+state.total+' differs from published dataset '+publishedTotal);
   assert(state.filtered>0,'Default 12-month filter has no visible events');
-  assert(state.rows>0&&state.firstCardVisible,'Event feed cards are not rendered visibly');
+  assert(state.rows===0&&state.railVisible,'OSINT must show filters instead of the former event list');
   assert(state.lang==='en','English must be default in a new browser');
   await page.locator('#time-open').click();
   await page.locator('#time-preset').selectOption('all');
   await page.locator('button.time-apply').click();
-  await page.waitForFunction(n=>Number(document.querySelector('#feed-count')?.textContent.replace(/[^0-9]/g,''))===n,publishedTotal);
+  await page.waitForFunction(n=>Number(document.querySelector('#osint-total')?.textContent.replace(/[^0-9]/g,''))===n,publishedTotal);
   console.log('ALL TIME: '+publishedTotal+' events displayed in count');
   await page.locator('button[data-lang="pt"]').first().click();
   assert(await page.locator('html').getAttribute('lang')==='pt-BR','Switch to PT failed in main view');

@@ -86,6 +86,7 @@ jobs:
         uses: actions/upload-pages-artifact@v4
         with:
           path: amazon-crimes/public
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Allow GitHub Pages artifact metadata to propagate
         run: sleep 15
@@ -93,6 +94,8 @@ jobs:
       - name: Deploy Amazon Crimes
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Browser smoke test - published events and language sync
         env:

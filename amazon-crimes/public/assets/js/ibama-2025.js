@@ -38,11 +38,11 @@ function render(){
  const tr=copy[lang()];
  const counts=Object.fromEntries(TYPES.map(([id])=>[id,0]));
  for(const f of features){for(const c of (f.properties?.categories||[f.properties?.category]))if(c in counts)counts[c]++;}
- panel.innerHTML='<div class="layer-section-title"><span>'+html(tr.heading.replace('2025',String(officialYear)))+'</span><small class="ibama-count">'+features.length.toLocaleString(lang())+' '+html(tr.count)+'</small></div>'+
+ panel.innerHTML='<div class="layer-section-title"><span>'+html(tr.heading.replace('2025',officialYear==='all'?'2020–2025':String(officialYear)))+'</span><small class="ibama-count">'+features.length.toLocaleString(lang())+' '+html(tr.count)+'</small></div>'+
  '<p class="ibama-note">'+html(tr.note)+'</p>'+
  '<div class="ibama-actions"><button type="button" id="ibama-all">'+html(tr.on)+'</button><button type="button" id="ibama-none">'+html(tr.off)+'</button></div>'+
  '<div class="layer-list">'+TYPES.map(([key,color,labels])=>'<label class="layer-row"><input class="ibama-category" type="checkbox" value="'+key+'" '+(enabled.has(key)?'checked':'')+' '+(features.length?'':'disabled')+'><span class="layer-dot-marker" style="--swatch:'+color+'"></span><span>'+html(labels[lang()])+' <small>('+counts[key].toLocaleString(lang())+')</small></span></label>').join('')+'</div>'+
- '<div class="ibama-source-state">'+(loadState==='ready'?html(tr.status):loadState==='loading'?html(tr.loading.replace('2025',String(officialYear))):html(tr.missing.replace('2025',String(officialYear))))+' · <a href="https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao" target="_blank" rel="noopener noreferrer">IBAMA</a></div>';
+ '<div class="ibama-source-state">'+(loadState==='ready'?html(tr.status):loadState==='loading'?html(tr.loading.replace('2025',officialYear==='all'?'2020–2025':String(officialYear))):html(tr.missing.replace('2025',officialYear==='all'?'2020–2025':String(officialYear))))+' · <a href="https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao" target="_blank" rel="noopener noreferrer">IBAMA</a></div>';
  panel.querySelectorAll('.ibama-category').forEach(e=>e.addEventListener('change',()=>{if(e.checked)enabled.add(e.value);else enabled.delete(e.value);updateVisibility();}));
  panel.querySelector('#ibama-all').addEventListener('click',()=>{TYPES.forEach(t=>enabled.add(t[0]));render();updateVisibility();});
  panel.querySelector('#ibama-none').addEventListener('click',()=>{enabled.clear();render();updateVisibility();});
@@ -93,7 +93,7 @@ function recordDetails(props) {
  const terms=props.seizure_terms?.length?'<section class="ibama-record-section"><h4>'+html(l.terms)+'</h4><ul>'+
   props.seizure_terms.map(item=>'<li><strong>'+html([item.number,item.series,item.date].filter(Boolean).join(' · ')||item.id)+'</strong>'+
    (item.seizure_detail?'<div class="ibama-tad-detail"><strong>'+html(({pt:'Detalhamento da apreensão',en:'Seizure details',es:'Detalle de la incautación'})[lang()])+'</strong><p>'+html(item.seizure_detail)+'</p><small>IBAMA · DS_TAD</small></div>':'')+'</li>').join('')+'</ul></section>':'';
- return '<strong>'+html(({pt:'Dados Oficiais',en:'Official Data',es:'Datos oficiales'})[lang()])+'</strong><p>'+html(tr.status)+' · IBAMA · '+officialYear+'</p>'+body+narrative+
+ return '<strong>'+html(({pt:'Dados Oficiais',en:'Official Data',es:'Datos oficiales'})[lang()])+'</strong><p>'+html(tr.status)+' · IBAMA · '+(props.date?.slice(0,4)||officialYear)+'</p>'+body+narrative+
   biological(l.species,props.species_referenced)+biological(l.seizedSpecies,props.seized_specimens)+goods+terms+
   '<p><a href="https://dadosabertos.ibama.gov.br/dataset/fiscalizacao-auto-de-infracao" target="_blank" rel="noopener noreferrer">'+html(tr.source)+'</a></p>';
 }
@@ -204,7 +204,7 @@ function groupPopup(group, location){
   const groupingHint=group.kind==='city'
     ? ({pt:'Autos agrupados pelo município e UF informados pelo IBAMA. O marcador representa a média das coordenadas dos registros, não a sede municipal.',en:'Notices grouped by IBAMA municipality and state. The marker uses the mean recorded coordinates, not the municipal centre.',es:'Actas agrupadas por municipio y estado del IBAMA. El marcador utiliza el promedio de coordenadas, no el centro municipal.'})[lang()]
     : ({pt:'Registros nas mesmas coordenadas geográficas (sem agrupamento por proximidade). Selecione um auto para visualizar.',en:'Records at identical geographic coordinates (no proximity clustering). Select a notice to view.',es:'Registros con coordenadas geográficas idénticas (sin agrupación por proximidad). Seleccione un acta para visualizar.'})[lang()];
-  popupView.setHTML('<div class="ibama-popup ibama-choices"><strong>'+html(({pt:'Dados Oficiais',en:'Official Data',es:'Datos oficiales'})[lang()])+'</strong><p>'+html(citySummary||tr.status)+' · IBAMA · '+officialYear+' · '+fmt.format(matches.length)+' / '+fmt.format(records.length)+' '+html(tr.count)+'</p><p class="ibama-exact-note">'+html(groupingHint)+'</p><input class="ibama-choice-search" type="search" placeholder="'+html(({pt:'Buscar por auto, data, local ou tipo',en:'Search by notice, date, place or type',es:'Buscar por acta, fecha, lugar o tipo'})[lang()])+'" value="'+html(search)+'" aria-label="Search IBAMA notices"><div class="ibama-choice-list">'+(buttons||'<p>—</p>')+'</div><div class="ibama-choice-pager"><button type="button" data-page="previous" '+(current===0?'disabled':'')+'>←</button><span>'+(current+1)+' / '+totalPages+'</span><button type="button" data-page="next" '+(current>=totalPages-1?'disabled':'')+'>→</button></div></div>');
+  popupView.setHTML('<div class="ibama-popup ibama-choices"><strong>'+html(({pt:'Dados Oficiais',en:'Official Data',es:'Datos oficiales'})[lang()])+'</strong><p>'+html(citySummary||tr.status)+' · IBAMA · '+(officialYear==='all'?'2020–2025':officialYear)+' · '+fmt.format(matches.length)+' / '+fmt.format(records.length)+' '+html(tr.count)+'</p><p class="ibama-exact-note">'+html(groupingHint)+'</p><input class="ibama-choice-search" type="search" placeholder="'+html(({pt:'Buscar por auto, data, local ou tipo',en:'Search by notice, date, place or type',es:'Buscar por acta, fecha, lugar o tipo'})[lang()])+'" value="'+html(search)+'" aria-label="Search IBAMA notices"><div class="ibama-choice-list">'+(buttons||'<p>—</p>')+'</div><div class="ibama-choice-pager"><button type="button" data-page="previous" '+(current===0?'disabled':'')+'>←</button><span>'+(current+1)+' / '+totalPages+'</span><button type="button" data-page="next" '+(current>=totalPages-1?'disabled':'')+'>→</button></div></div>');
   fitOfficialPopup(popupView);
   const root=popupView.getElement();
   root.querySelector('.ibama-choice-search')?.addEventListener('input',e=>{
@@ -237,8 +237,8 @@ function groupPopup(group, location){
  renderPage();
 }
 async function loadOfficialYear(nextYear){
- const year=Number(nextYear);
- if(!Number.isInteger(year)||year<2020||year>2025)return;
+ const year=nextYear==='all'?'all':Number(nextYear);
+ if(year!=='all'&&(!Number.isInteger(year)||year<2020||year>2025))return;
  officialYear=year;
  const serial=++activeYearRequest;
  features=[];loadState='loading';snapshotStats={};
@@ -246,19 +246,30 @@ async function loadOfficialYear(nextYear){
  officialExplorer?.setLoading();
  updateVisibility();
  try{
-  let data=yearCache.get(year);
-  if(!data){
-   const response=await fetch('./data/ibama-'+year+'.json',{cache:'no-store'});
-   if(!response.ok)throw new Error('IBAMA '+year+' HTTP '+response.status);
-   data=await response.json();
-   if(data?.year!==year||data?.type!=='FeatureCollection'||!Array.isArray(data.features)||!data.features.length)
-    throw new Error('Invalid or empty IBAMA annual dataset '+year);
-   yearCache.set(year,data);
+  const years=year==='all'?[2020,2021,2022,2023,2024,2025]:[year];
+  async function getYear(y){
+   const cached=yearCache.get(y);
+   if(cached)return cached;
+   const response=await fetch('./data/ibama-'+y+'.json',{cache:'force-cache'});
+   if(!response.ok)throw new Error('IBAMA '+y+' HTTP '+response.status);
+   const data=await response.json();
+   if(data?.year!==y||data?.type!=='FeatureCollection'||!Array.isArray(data.features)||!data.features.length)
+    throw new Error('Invalid or empty IBAMA annual dataset '+y);
+   yearCache.set(y,data);
+   return data;
   }
+  // Retrieve only missing annual files and cache by year; switching back
+  // to a single year does not re-download the full historical collection.
+  const datasets=await Promise.all(years.map(getYear));
   if(serial!==activeYearRequest)return;
-  features=data.features.filter(f=>f?.geometry?.type==='Point'&&Array.isArray(f.geometry.coordinates)&&
-   String(f.properties?.date||'').startsWith(String(year)+'-'));
-  snapshotStats=data.stats||{};loadState='ready';
+  features=datasets.flatMap((data,i)=>data.features.filter(f=>
+   f?.geometry?.type==='Point'&&Array.isArray(f.geometry.coordinates)&&
+   String(f.properties?.date||'').startsWith(String(years[i])+'-')));
+  if(!features.length)throw new Error('No official IBAMA records loaded for '+year);
+  snapshotStats=year==='all'
+   ?{years:years.join(','),total_records:features.length}
+   :datasets[0].stats||{};
+  loadState='ready';
   if(enabled.size===0)TYPES.forEach(([key])=>enabled.add(key));
   officialExplorer?.setData(features);
   render();install();updateVisibility();domOverlay?.schedule();

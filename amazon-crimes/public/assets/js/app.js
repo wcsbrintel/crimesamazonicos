@@ -1,7 +1,7 @@
 import { translations } from './i18n.js';
 import { createIbamaDomOverlay } from './ibama-2025-dom.js?v=20261125-osint-parity1';
 import { createIbamaKde } from './ibama-kde.js?v=20261125-osint-parity1';
-import { installIbama2025, refreshIbamaLanguage, ibama2025Health, setIbamaOfficialMode } from './ibama-2025.js?v=20261124-default-deforestation1';
+import { installIbama2025, refreshIbamaLanguage, ibama2025Health, setIbamaOfficialMode } from './ibama-2025.js?v=20261125-all-years1';
 import { preferredLanguage, selectLanguage, listenLanguage } from './language-preference.js?v=20261115-unified';
 import { createTemporalFilter } from './temporal-filter.js?v=20261115-lastyear';
 import { crimeTypes, crimeTypeMeta, mapConfig, futureLayerGroups } from './config.js';

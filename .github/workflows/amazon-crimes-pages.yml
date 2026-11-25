@@ -54,11 +54,34 @@ jobs:
       - name: Generate same-origin protected-area tiles
         run: node scripts/build-territorial-tiles.mjs
 
-      - name: Build IBAMA 2025 official administrative layers
-        run: python3 scripts/build-ibama-2025.py --output public/data/ibama-2025.json
+      - name: Build IBAMA 2020-2025 official annual layers
+        run: python3 scripts/build-ibama-years.py --output-dir public/data --years 2020,2021,2022,2023,2024,2025
 
-      - name: Enrich IBAMA 2025 thematic records and linked seizures
-        run: python3 scripts/enrich-ibama-2025.py
+      - name: Enrich IBAMA 2020-2025 records and linked seizure evidence
+        run: python3 scripts/enrich-ibama-years.py
+
+      - name: Validate IBAMA year coverage and historical file integrity
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          root=pathlib.Path('public/data')
+          ids=set()
+          for year in range(2020,2026):
+              data=json.loads((root/f'ibama-{year}.json').read_text())
+              assert data['year']==year and data['features'],f'Empty or mislabeled {year}'
+              assert (root/f'ibama-{year}-audit.json').is_file()
+              unique=set()
+              for feature in data['features']:
+                  prop=feature['properties']
+                  assert prop['date'].startswith(str(year)+'-')
+                  assert prop['id'].startswith(f'IBAMA-{year}-')
+                  assert prop['id'] not in unique and prop['id'] not in ids
+                  unique.add(prop['id'])
+                  x,y=feature['geometry']['coordinates']
+                  assert -76 <= x <= -42 and -18.5 <= y <= 6
+              ids.update(unique)
+              print('IBAMA ANNUAL VERIFIED:',year,len(data['features']),len(unique))
+          PY
 
       - name: Validate JavaScript
         run: |

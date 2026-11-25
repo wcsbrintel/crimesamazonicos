@@ -1,6 +1,6 @@
 # IBAMA 2020–2025 — ingestão oficial, classificação e evidências
 
-A seção **Dados Oficiais / IBAMA** não altera `data/events.json`. Trata de **autos de infração administrativos**, não condenações criminais. Os arquivos anuais `public/data/ibama-2020.json` até `public/data/ibama-2025.json` são gerados na publicação GitHub Pages. O seletor inicia em **2025**, com opção de navegar entre os seis anos sem mesclar autos de anos diferentes.
+A seção **Dados Oficiais / IBAMA** não altera `data/events.json`. Trata de **autos de infração administrativos**, não condenações criminais. Os arquivos anuais `public/data/ibama-2020.json` até `public/data/ibama-2025.json` são gerados na publicação GitHub Pages. O seletor inicia em **2025**. O botão **Todos os anos** reúne no mapa os seis arquivos anuais (2020–2025), preservando em cada auto seu ano, data e identificador originais. Ao selecionar um ano individual, os demais deixam de ser exibidos. As categorias, os filtros por UF e o KDE operam sobre os registros efetivamente selecionados; os eventos OSINT permanecem separados.
 
 ## Fontes utilizadas
 
